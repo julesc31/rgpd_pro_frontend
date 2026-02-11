@@ -21,6 +21,7 @@ import {
   StopCircle,
   Terminal
 } from "lucide-react"
+import { BetaFeedbackQuestionnaire } from "@/components/beta-feedback-questionnaire"
 
 type ScanStatus = "pending" | "running" | "completed" | "failed"
 
@@ -40,6 +41,7 @@ type Scan = {
   current_phase?: string
   created_at: string
   scan_logs?: LogEntry[]
+  scan_data?: { summary?: { total_violations?: number; risk_level?: string } }
 }
 
 type ApiScanStatus = {
@@ -279,7 +281,7 @@ export default function ScanProgressPage() {
                 </p>
                 <Button
                   onClick={handleBackToScan}
-                  className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700"
+                  className="btn-cta"
                 >
                   <ArrowLeft className="mr-2 h-4 w-4" />
                   Retour au scanner
@@ -296,6 +298,15 @@ export default function ScanProgressPage() {
   if (scan.status === "failed") {
     return (
       <div className="min-h-screen bg-gradient-to-br from-black to-slate-900 text-slate-100">
+        <BetaFeedbackQuestionnaire
+          context={{
+            scanId,
+            status: "failed",
+            targetUrl: scan.target_url,
+            riskLevel: scan.risk_level,
+            errorMessage: scan.current_phase,
+          }}
+        />
         <div className="container mx-auto p-4">
           <DashboardNav userEmail={userEmail} />
           <div className="max-w-2xl mx-auto mt-12">
@@ -309,12 +320,13 @@ export default function ScanProgressPage() {
                   {extractDomain(scan.target_url)}
                 </p>
                 <p className="text-sm text-slate-500 mb-6">
-                  Le site n'a pas pu être analysé. Cela peut être dû à un blocage WAF,
-                  une protection anti-bot, ou un problème de connexion.
+                  {scan.current_phase && scan.current_phase !== "Échec"
+                    ? scan.current_phase
+                    : "Le site n'a pas pu être analysé. Cela peut être dû à un blocage WAF, une protection anti-bot, ou un problème de connexion."}
                 </p>
                 <Button
                   onClick={handleBackToScan}
-                  className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700"
+                  className="btn-cta"
                 >
                   <ArrowLeft className="mr-2 h-4 w-4" />
                   Réessayer
@@ -329,8 +341,18 @@ export default function ScanProgressPage() {
 
   // Completed state
   if (scan.status === "completed") {
+    const violationsCount = scan.scan_data?.summary?.total_violations ?? 0
     return (
       <div className="min-h-screen bg-gradient-to-br from-black to-slate-900 text-slate-100">
+        <BetaFeedbackQuestionnaire
+          context={{
+            scanId,
+            status: "completed",
+            targetUrl: scan.target_url,
+            riskLevel: scan.risk_level ?? scan.scan_data?.summary?.risk_level,
+            violationsCount,
+          }}
+        />
         <div className="container mx-auto p-4">
           <DashboardNav userEmail={userEmail} />
           <div className="max-w-2xl mx-auto mt-12">
@@ -364,7 +386,7 @@ export default function ScanProgressPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <Button
                     onClick={handleViewReport}
-                    className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white h-12"
+                    className="btn-cta h-12"
                   >
                     <Eye className="mr-2 h-4 w-4" />
                     Voir le rapport

@@ -36,12 +36,17 @@ export function PublicFooter() {
             <h4 className="text-white font-medium mb-4">Produit</h4>
             <ul className="space-y-2">
               <li>
-                <Link href="/features" className="text-slate-500 hover:text-slate-300 text-sm">
+                <Link href="/features" className="text-slate-500 hover:text-slate-300 text-sm transition-colors">
                   Fonctionnalités
                 </Link>
               </li>
               <li>
-                <Link href="/docs" className="text-slate-500 hover:text-slate-300 text-sm">
+                <Link href="/demo" className="text-slate-500 hover:text-slate-300 text-sm transition-colors">
+                  Exemple de rapport
+                </Link>
+              </li>
+              <li>
+                <Link href="/docs" className="text-slate-500 hover:text-slate-300 text-sm transition-colors">
                   Documentation
                 </Link>
               </li>
@@ -53,17 +58,17 @@ export function PublicFooter() {
             <h4 className="text-white font-medium mb-4">Légal</h4>
             <ul className="space-y-2">
               <li>
-                <Link href="/mentions-legales" className="text-slate-500 hover:text-slate-300 text-sm">
+                <Link href="/mentions-legales" className="text-slate-500 hover:text-slate-300 text-sm transition-colors">
                   Mentions légales
                 </Link>
               </li>
               <li>
-                <Link href="/confidentialite" className="text-slate-500 hover:text-slate-300 text-sm">
+                <Link href="/confidentialite" className="text-slate-500 hover:text-slate-300 text-sm transition-colors">
                   Politique de confidentialité
                 </Link>
               </li>
               <li>
-                <Link href="/cgu" className="text-slate-500 hover:text-slate-300 text-sm">
+                <Link href="/cgu" className="text-slate-500 hover:text-slate-300 text-sm transition-colors">
                   CGU
                 </Link>
               </li>

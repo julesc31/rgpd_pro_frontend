@@ -3,6 +3,7 @@ import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { PublicHeader } from "@/components/public-header"
 import { PublicFooter } from "@/components/public-footer"
+import { ScreenshotLightbox } from "@/components/screenshot-lightbox"
 import { 
   Shield,
   Scale,
@@ -46,7 +47,7 @@ export default function LandingPage() {
             
             <div className="flex justify-center mb-8">
               <Link href="/auth/register">
-                <Button size="lg" className="bg-white text-slate-900 hover:bg-slate-100 text-lg px-8 py-6 h-auto font-semibold shadow-lg shadow-white/10">
+                <Button size="lg" className="btn-cta text-lg px-8 py-6 h-auto">
                   Tester maintenant
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Button>
@@ -56,23 +57,32 @@ export default function LandingPage() {
             <p className="text-slate-500">
               Test grandeur nature • Accès libre • Résultats en 2-3 minutes
             </p>
+            <Link href="/demo" className="inline-block mt-3 text-sm text-cyan-400 hover:text-cyan-300 transition-colors">
+              Voir un exemple de rapport →
+            </Link>
           </div>
         </section>
 
         {/* Screenshot Hero - Executive Summary */}
         <section className="container mx-auto px-6 pb-20">
-          <div className="max-w-5xl mx-auto">
-            <div className="relative rounded-xl overflow-hidden border border-slate-800 shadow-2xl shadow-blue-500/10">
-              <Image
-                src="/screenshots/executive-summary.png"
-                alt="RGPD_PRO - Executive Summary avec niveau de risque, estimation d'amende et ROI"
-                width={1200}
-                height={800}
-                className="w-full h-auto"
-                priority
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent" />
-            </div>
+          <div className="max-w-6xl mx-auto">
+            <ScreenshotLightbox
+              src="/screenshots/executive-summary.png"
+              alt="RGPD_PRO - Executive Summary avec niveau de risque, estimation d'amende et ROI"
+              className="rounded-xl border border-slate-800 shadow-2xl shadow-blue-500/10"
+            >
+              <div className="relative aspect-[16/10] min-h-[380px] bg-slate-900">
+                <Image
+                  src="/screenshots/executive-summary.png"
+                  alt="RGPD_PRO - Executive Summary avec niveau de risque, estimation d'amende et ROI"
+                  fill
+                  className="object-contain object-top"
+                  priority
+                  sizes="(max-width: 1280px) 100vw, 1152px"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent pointer-events-none" />
+              </div>
+            </ScreenshotLightbox>
           </div>
         </section>
 
@@ -239,7 +249,7 @@ export default function LandingPage() {
               Testez l&apos;outil en conditions réelles. Rapport complet en 2-3 minutes.
             </p>
             <Link href="/auth/register">
-              <Button size="lg" className="bg-white text-slate-900 hover:bg-slate-100 text-lg px-10 py-6 h-auto font-semibold shadow-lg shadow-white/10">
+              <Button size="lg" className="btn-cta text-lg px-10 py-6 h-auto">
                 Commencer le test
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
@@ -277,14 +287,17 @@ function FeatureCard({
 }) {
   return (
     <div className="bg-slate-900/50 border border-slate-800 rounded-xl overflow-hidden">
-      <div className="aspect-video relative overflow-hidden bg-slate-800">
-        <Image
-          src={image}
-          alt={imageAlt}
-          fill
-          className="object-cover object-top"
-        />
-      </div>
+      <ScreenshotLightbox src={image} alt={imageAlt}>
+        <div className="aspect-[16/10] min-h-[280px] relative overflow-hidden bg-slate-800">
+          <Image
+            src={image}
+            alt={imageAlt}
+            fill
+            className="object-cover object-top"
+            sizes="(max-width: 768px) 100vw, 50vw"
+          />
+        </div>
+      </ScreenshotLightbox>
       <div className="p-6">
         <div className="flex items-center gap-3 mb-3">
           <div className="p-2 bg-blue-500/10 rounded-lg border border-blue-500/30">

@@ -33,7 +33,7 @@ export default async function ErrorPage({
                 {params?.error || "Une erreur est survenue lors de l'authentification."}
               </p>
               <Link href="/auth/login">
-                <Button className="w-full bg-cyan-600 hover:bg-cyan-700 text-white">
+                <Button className="btn-cta w-full">
                   Retour à la connexion
                 </Button>
               </Link>

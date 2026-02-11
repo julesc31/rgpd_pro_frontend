@@ -34,6 +34,7 @@ export async function updateSession(request: NextRequest) {
     !user &&
     (request.nextUrl.pathname.startsWith("/dashboard") ||
       request.nextUrl.pathname.startsWith("/scan") ||
+      request.nextUrl.pathname.startsWith("/report") ||
       request.nextUrl.pathname.startsWith("/reports") ||
       request.nextUrl.pathname.startsWith("/timeline") ||
       request.nextUrl.pathname.startsWith("/settings") ||
@@ -50,7 +51,7 @@ export async function updateSession(request: NextRequest) {
     (request.nextUrl.pathname.startsWith("/auth/login") || request.nextUrl.pathname.startsWith("/auth/register"))
   ) {
     const url = request.nextUrl.clone()
-    url.pathname = "/dashboard"
+    url.pathname = "/scan"
     return NextResponse.redirect(url)
   }
 

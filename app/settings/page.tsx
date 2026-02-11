@@ -168,7 +168,7 @@ export default function SettingsPage() {
                       <Label htmlFor="company" className="text-slate-300">Entreprise</Label>
                       <Input id="company" value={company} onChange={(e) => setCompany(e.target.value)} className="bg-slate-800/50 border-slate-700/50 text-slate-100" />
                     </div>
-                    <Button type="submit" disabled={isLoading} className="w-full bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white">
+                    <Button type="submit" disabled={isLoading} className="w-full btn-cta">
                       {isLoading ? "Enregistrement..." : "Save"}
                     </Button>
                   </form>
@@ -198,7 +198,7 @@ export default function SettingsPage() {
                       <Label htmlFor="confirmPassword" className="text-slate-300">Confirmer le nouveau mot de passe</Label>
                       <Input id="confirmPassword" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="bg-slate-800/50 border-slate-700/50 text-slate-100" />
                     </div>
-                    <Button type="submit" disabled={isLoading} className="w-full bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white">
+                    <Button type="submit" disabled={isLoading} className="w-full btn-cta">
                       {isLoading ? "Mise à jour..." : "Mettre à jour le mot de passe"}
                     </Button>
                   </form>
@@ -257,7 +257,7 @@ export default function SettingsPage() {
                   </div>
                   <Switch checked={weeklyReports} onCheckedChange={setWeeklyReports} />
                 </div>
-                <Button className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white">
+                <Button className="btn-cta">
                   <Save className="h-4 w-4 mr-2" />Save les préférences
                 </Button>
               </CardContent>
@@ -282,7 +282,7 @@ export default function SettingsPage() {
                   </div>
                   <p className="text-xs text-slate-500 mt-2">Créée le 15 janvier 2025</p>
                 </div>
-                <Button className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white">
+                <Button className="btn-cta">
                   <Key className="h-4 w-4 mr-2" />Générer une nouvelle clé
                 </Button>
                 <div className="bg-cyan-500/10 border border-cyan-500/50 rounded-lg p-4 mt-6">

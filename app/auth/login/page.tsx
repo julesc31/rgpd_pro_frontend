@@ -103,7 +103,7 @@ export default function LoginPage() {
                 {error && <p className="text-sm text-red-400">{error}</p>}
                 <Button
                   type="submit"
-                  className="w-full bg-cyan-600 hover:bg-cyan-700 text-white"
+                  className="btn-cta w-full"
                   disabled={isLoading}
                 >
                   {isLoading ? "Connexion..." : "Se connecter"}

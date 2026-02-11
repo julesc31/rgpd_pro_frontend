@@ -48,6 +48,7 @@ import {
   Zap
 } from "lucide-react"
 import Link from "next/link"
+import { BetaFeedbackQuestionnaire } from "@/components/beta-feedback-questionnaire"
 
 // ============================================================================
 // CONFIGURATION (from scanner_config.py)
@@ -121,6 +122,7 @@ type Scan = {
   created_at: string
   completed_at: string | null
   scan_logs?: LogEntry[]
+  scan_data?: { summary?: { total_violations?: number; risk_level?: string } }
 }
 
 // ============================================================================
@@ -829,6 +831,18 @@ export default function ScanPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-black to-slate-900 text-slate-100">
+      {(isActiveScanCompleted || isActiveScanFailed) && activeScan && (
+        <BetaFeedbackQuestionnaire
+          context={{
+            scanId: activeScan.id,
+            status: isActiveScanCompleted ? "completed" : "failed",
+            targetUrl: activeScan.target_url,
+            riskLevel: activeScan.risk_level ?? activeScan.scan_data?.summary?.risk_level,
+            violationsCount: activeScan.scan_data?.summary?.total_violations ?? 0,
+            errorMessage: isActiveScanFailed ? activeScan.current_phase : undefined,
+          }}
+        />
+      )}
       <div className="container mx-auto p-4 max-w-5xl">
         <DashboardNav userEmail={userEmail} />
 
@@ -969,7 +983,7 @@ export default function ScanPage() {
               {/* Envoyer Button */}
               <Button
                 type="submit"
-                className="w-full bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white h-12 text-base disabled:opacity-50 disabled:cursor-not-allowed"
+                className="btn-cta w-full h-12 text-base disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={isLoading || !isFormValid}
               >
                 {isLoading ? (
@@ -1111,9 +1125,9 @@ export default function ScanPage() {
                 <div className="flex justify-between items-center pt-2">
                   <Button
                     onClick={handleCloseActiveScan}
-                    variant="ghost"
+                    variant="outline"
                     size="sm"
-                    className="text-slate-400 hover:text-slate-100"
+                    className="border-slate-500 text-slate-200 hover:bg-slate-700 hover:text-white hover:border-slate-600 bg-transparent"
                   >
                     Fermer
                   </Button>
@@ -1121,7 +1135,7 @@ export default function ScanPage() {
                     <Link href={`/report/${activeScan.id}`}>
                       <Button
                         size="sm"
-                        className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700"
+                        className="btn-cta"
                       >
                         Voir le rapport complet
                         <ArrowRight className="ml-2 h-4 w-4" />
@@ -1133,12 +1147,14 @@ export default function ScanPage() {
                 {isActiveScanFailed && (
                   <div className="text-center py-4">
                     <p className="text-slate-400 mb-3">
-                      Le scan a échoué. Cela peut être dû à un blocage WAF ou une protection anti-bot.
+                      {activeScan.current_phase && activeScan.current_phase !== "Échec"
+                        ? activeScan.current_phase
+                        : "Le scan a échoué. Cela peut être dû à un blocage WAF ou une protection anti-bot."}
                     </p>
                     <Button
                       onClick={handleCloseActiveScan}
                       variant="outline"
-                      className="border-slate-700 hover:bg-slate-800 bg-transparent"
+                      className="border-slate-500 text-slate-200 hover:bg-slate-700 hover:text-white hover:border-slate-600 bg-transparent"
                     >
                       Fermer
                     </Button>
@@ -1325,7 +1341,7 @@ export default function ScanPage() {
                         <Link href={`/report/${scan.id}`}>
                           <Button
                             size="sm"
-                            className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white"
+                            className="btn-cta"
                           >
                             <FileText className="h-4 w-4 mr-2" />
                             Consulter

@@ -9,6 +9,7 @@ export function PublicHeader() {
   
   const navLinks = [
     { href: "/features", label: "Fonctionnalités" },
+    { href: "/demo", label: "Exemple" },
     { href: "/docs", label: "Documentation" },
   ]
 
@@ -66,7 +67,7 @@ export function PublicHeader() {
               </Button>
             </Link>
             <Link href="/auth/register">
-              <Button className="bg-cyan-600 hover:bg-cyan-700 text-white">
+              <Button className="btn-cta rounded-xl px-5 py-2">
                 Tester maintenant
               </Button>
             </Link>

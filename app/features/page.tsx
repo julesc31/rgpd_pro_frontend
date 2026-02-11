@@ -1,5 +1,7 @@
+import Link from "next/link"
 import { PublicHeader } from "@/components/public-header"
 import { PublicFooter } from "@/components/public-footer"
+import { Button } from "@/components/ui/button"
 import { 
   Cookie, 
   Fingerprint, 
@@ -10,7 +12,9 @@ import {
   Scale,
   Clock,
   ShieldCheck,
-  FileText
+  FileText,
+  ArrowRight,
+  ArrowLeft
 } from "lucide-react"
 
 export default function FeaturesPage() {
@@ -20,6 +24,10 @@ export default function FeaturesPage() {
 
       <main className="container mx-auto px-6 py-16">
         <div className="max-w-3xl mx-auto mb-16">
+          <Link href="/" className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-300 text-sm mb-8 transition-colors">
+            <ArrowLeft className="h-4 w-4" />
+            Retour à l&apos;accueil
+          </Link>
           <h1 className="text-3xl md:text-4xl font-bold mb-4">
             Ce que RGPD_PRO analyse
           </h1>
@@ -96,7 +104,7 @@ export default function FeaturesPage() {
         {/* Specs techniques */}
         <section className="max-w-3xl">
           <h2 className="text-xl font-bold mb-8">Détails techniques</h2>
-          <div className="space-y-4 text-slate-400">
+            <div className="space-y-4 text-slate-400">
             <div className="flex items-start gap-3">
               <Clock className="h-5 w-5 text-slate-600 mt-0.5" />
               <p><strong className="text-white">Durée du scan :</strong> environ 60 secondes. Le scanner attend que la page soit complètement chargée avant d'analyser.</p>
@@ -109,6 +117,26 @@ export default function FeaturesPage() {
               <ShieldCheck className="h-5 w-5 text-slate-600 mt-0.5" />
               <p><strong className="text-white">Pas d'impact sur votre site :</strong> Le scanner est passif, il ne modifie rien. Il se comporte comme un visiteur normal.</p>
             </div>
+          </div>
+        </section>
+
+        {/* CTA */}
+        <section className="max-w-2xl mx-auto mt-20 pt-16 border-t border-slate-800 text-center">
+          <p className="text-slate-400 mb-6">
+            Prêt à analyser votre site ?
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Link href="/demo">
+              <Button variant="outline" className="border-slate-600 text-slate-300 hover:bg-slate-800 hover:text-white">
+                Voir un exemple
+              </Button>
+            </Link>
+            <Link href="/auth/register">
+              <Button className="btn-cta">
+                Tester gratuitement
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </Link>
           </div>
         </section>
       </main>

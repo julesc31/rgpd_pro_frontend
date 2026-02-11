@@ -2,7 +2,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { PublicHeader } from "@/components/public-header"
 import { PublicFooter } from "@/components/public-footer"
-import { ArrowRight, AlertTriangle, CheckCircle2 } from "lucide-react"
+import { ArrowRight, ArrowLeft, AlertTriangle, CheckCircle2 } from "lucide-react"
 
 export default function DemoPage() {
   return (
@@ -11,6 +11,10 @@ export default function DemoPage() {
 
       <main className="container mx-auto px-6 py-16">
         <div className="max-w-3xl mx-auto mb-12">
+          <Link href="/" className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-300 text-sm mb-8 transition-colors">
+            <ArrowLeft className="h-4 w-4" />
+            Retour à l&apos;accueil
+          </Link>
           <h1 className="text-3xl md:text-4xl font-bold mb-4">
             Exemple de rapport
           </h1>
@@ -84,7 +88,7 @@ export default function DemoPage() {
             Vous voulez voir ce que ça donne sur votre site ?
           </p>
           <Link href="/auth/register">
-            <Button size="lg" className="bg-cyan-600 hover:bg-cyan-700 text-white">
+            <Button size="lg" className="btn-cta">
               Scanner mon site gratuitement
               <ArrowRight className="ml-2 h-5 w-5" />
             </Button>

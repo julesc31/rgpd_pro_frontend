@@ -28,7 +28,7 @@ export default function SuccessPage() {
                 Cliquez dessus pour activer votre compte.
               </p>
               <Link href="/auth/login">
-                <Button className="w-full bg-cyan-600 hover:bg-cyan-700 text-white">
+                <Button className="btn-cta w-full">
                   Aller à la connexion
                 </Button>
               </Link>

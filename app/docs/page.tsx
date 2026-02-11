@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { PublicHeader } from "@/components/public-header"
 import { PublicFooter } from "@/components/public-footer"
@@ -10,6 +11,10 @@ export default function DocsPage() {
 
       <main className="container mx-auto px-6 py-16">
         <div className="max-w-3xl mx-auto">
+          <Link href="/" className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-300 text-sm mb-8 transition-colors">
+            <ArrowLeft className="h-4 w-4" />
+            Retour à l&apos;accueil
+          </Link>
           <h1 className="text-3xl md:text-4xl font-bold mb-4">Documentation</h1>
           <p className="text-slate-400 text-lg mb-12">
             Tout ce qu&apos;il faut savoir pour utiliser RGPD_PRO.
@@ -104,12 +109,15 @@ export default function DocsPage() {
 
           {/* Contact */}
           <Section title="Besoin d'aide ?">
-            <p className="text-slate-400">
+            <p className="text-slate-400 mb-6">
               Si vous avez des questions, contactez-nous à{" "}
-              <a href="mailto:support@rgpd-pro.fr" className="text-cyan-400 hover:underline">
-                support@rgpd-pro.fr
+              <a href="mailto:contact@rgpd.pro" className="text-cyan-400 hover:underline">
+                contact@rgpd.pro
               </a>
             </p>
+            <Link href="/auth/register">
+              <Button className="btn-cta">Créer un compte</Button>
+            </Link>
           </Section>
         </div>
       </main>

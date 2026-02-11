@@ -1,5 +1,7 @@
+import Link from "next/link"
 import { PublicHeader } from "@/components/public-header"
 import { PublicFooter } from "@/components/public-footer"
+import { ArrowLeft } from "lucide-react"
 
 export default function MentionsLegalesPage() {
   return (
@@ -8,6 +10,10 @@ export default function MentionsLegalesPage() {
 
       <main className="container mx-auto px-6 py-16">
         <div className="max-w-3xl mx-auto">
+          <Link href="/" className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-300 text-sm mb-8 transition-colors">
+            <ArrowLeft className="h-4 w-4" />
+            Retour à l&apos;accueil
+          </Link>
           <h1 className="text-3xl md:text-4xl font-bold mb-8">Mentions légales</h1>
           
           <div className="prose prose-invert prose-slate max-w-none space-y-8">
@@ -15,21 +21,22 @@ export default function MentionsLegalesPage() {
               <h2 className="text-xl font-semibold mb-4 text-white">Éditeur du site</h2>
               <div className="bg-slate-900/50 border border-slate-800 rounded-lg p-6 space-y-2 text-slate-300">
                 <p><strong className="text-white">RGPD_PRO</strong></p>
-                <p>Micro-entreprise</p>
-                <p>SIRET : [À compléter]</p>
-                <p>Adresse : [À compléter]</p>
-                <p>Email : contact@rgpd-pro.fr</p>
-                <p>Directeur de la publication : [À compléter]</p>
+                <p>Particulier — activité en phase de test</p>
+                <p>Adresse : 14 impasse de Suède, 31140 Pechbonnieu</p>
+                <p>Email : contact@rgpd.pro</p>
+                <p>Directeur de la publication : Julien Escrouzailles</p>
               </div>
             </section>
 
             <section>
               <h2 className="text-xl font-semibold mb-4 text-white">Hébergement</h2>
               <div className="bg-slate-900/50 border border-slate-800 rounded-lg p-6 space-y-2 text-slate-300">
-                <p><strong className="text-white">Vercel Inc.</strong></p>
-                <p>440 N Barranca Ave #4133</p>
-                <p>Covina, CA 91723, États-Unis</p>
-                <p>Site : vercel.com</p>
+                <p><strong className="text-white">Railway</strong></p>
+                <p>Hébergement de l&apos;application (serveur, base de données)</p>
+                <p>Site : railway.app</p>
+                <p className="pt-2 border-t border-slate-700 mt-2"><strong className="text-white">OVH</strong></p>
+                <p>Registrar du nom de domaine rgpd.pro</p>
+                <p>Site : ovh.com</p>
               </div>
             </section>
 
@@ -92,7 +99,7 @@ export default function MentionsLegalesPage() {
               <h2 className="text-xl font-semibold mb-4 text-white">Contact</h2>
               <p className="text-slate-300 leading-relaxed">
                 Pour toute question concernant ces mentions légales, vous pouvez nous contacter à 
-                l&apos;adresse : <a href="mailto:contact@rgpd-pro.fr" className="text-cyan-400 hover:underline">contact@rgpd-pro.fr</a>
+                l&apos;adresse : <a href="mailto:contact@rgpd.pro" className="text-cyan-400 hover:underline">contact@rgpd.pro</a>
               </p>
             </section>
 

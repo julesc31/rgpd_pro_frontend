@@ -1,5 +1,7 @@
+import Link from "next/link"
 import { PublicHeader } from "@/components/public-header"
 import { PublicFooter } from "@/components/public-footer"
+import { ArrowLeft } from "lucide-react"
 
 export default function CGUPage() {
   return (
@@ -8,6 +10,10 @@ export default function CGUPage() {
 
       <main className="container mx-auto px-6 py-16">
         <div className="max-w-3xl mx-auto">
+          <Link href="/" className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-300 text-sm mb-8 transition-colors">
+            <ArrowLeft className="h-4 w-4" />
+            Retour à l&apos;accueil
+          </Link>
           <h1 className="text-3xl md:text-4xl font-bold mb-8">Conditions Générales d&apos;Utilisation</h1>
           
           <div className="prose prose-invert prose-slate max-w-none space-y-8">
@@ -15,7 +21,7 @@ export default function CGUPage() {
               <h2 className="text-xl font-semibold mb-4 text-white">Article 1 — Objet</h2>
               <p className="text-slate-300 leading-relaxed">
                 Les présentes Conditions Générales d&apos;Utilisation (CGU) régissent l&apos;accès et l&apos;utilisation 
-                du service RGPD_PRO, accessible à l&apos;adresse rgpd-pro.fr (ci-après « le Service »).
+                du service RGPD_PRO, accessible à l&apos;adresse rgpd.pro (ci-après « le Service »).
               </p>
               <p className="text-slate-300 leading-relaxed mt-4">
                 Le Service est un outil d&apos;analyse automatisée permettant de détecter les violations 
@@ -206,8 +212,8 @@ export default function CGUPage() {
               <h2 className="text-xl font-semibold mb-4 text-white">Article 14 — Contact</h2>
               <p className="text-slate-300 leading-relaxed">
                 Pour toute question relative aux présentes CGU :{" "}
-                <a href="mailto:contact@rgpd-pro.fr" className="text-cyan-400 hover:underline">
-                  contact@rgpd-pro.fr
+                <a href="mailto:contact@rgpd.pro" className="text-cyan-400 hover:underline">
+                  contact@rgpd.pro
                 </a>
               </p>
             </section>

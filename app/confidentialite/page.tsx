@@ -1,5 +1,7 @@
+import Link from "next/link"
 import { PublicHeader } from "@/components/public-header"
 import { PublicFooter } from "@/components/public-footer"
+import { ArrowLeft } from "lucide-react"
 
 export default function ConfidentialitePage() {
   return (
@@ -8,6 +10,10 @@ export default function ConfidentialitePage() {
 
       <main className="container mx-auto px-6 py-16">
         <div className="max-w-3xl mx-auto">
+          <Link href="/" className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-300 text-sm mb-8 transition-colors">
+            <ArrowLeft className="h-4 w-4" />
+            Retour à l&apos;accueil
+          </Link>
           <h1 className="text-3xl md:text-4xl font-bold mb-8">Politique de confidentialité</h1>
           
           <div className="prose prose-invert prose-slate max-w-none space-y-8">
@@ -15,8 +21,8 @@ export default function ConfidentialitePage() {
               <h2 className="text-xl font-semibold mb-4 text-white">Responsable du traitement</h2>
               <div className="bg-slate-900/50 border border-slate-800 rounded-lg p-6 space-y-2 text-slate-300">
                 <p><strong className="text-white">RGPD_PRO</strong></p>
-                <p>Email : dpo@rgpd-pro.fr</p>
-                <p>Adresse : [À compléter]</p>
+                <p>Email : contact@rgpd.pro</p>
+                <p>Adresse : 14 impasse de Suède, 31140 Pechbonnieu</p>
               </div>
             </section>
 
@@ -98,8 +104,8 @@ export default function ConfidentialitePage() {
                 Vos données sont traitées par :
               </p>
               <ul className="list-disc list-inside text-slate-300 space-y-2">
-                <li><strong className="text-white">Supabase</strong> (hébergement base de données) — UE/US avec clauses contractuelles types</li>
-                <li><strong className="text-white">Vercel</strong> (hébergement application) — US avec clauses contractuelles types</li>
+                <li><strong className="text-white">Supabase</strong> (base de données) — UE/US avec clauses contractuelles types</li>
+                <li><strong className="text-white">Railway</strong> (hébergement application) — US avec clauses contractuelles types</li>
               </ul>
               <p className="text-slate-300 leading-relaxed mt-4">
                 Nous ne vendons ni ne louons vos données à des tiers. Aucune donnée n&apos;est partagée 
@@ -110,7 +116,7 @@ export default function ConfidentialitePage() {
             <section>
               <h2 className="text-xl font-semibold mb-4 text-white">Transferts hors UE</h2>
               <p className="text-slate-300 leading-relaxed">
-                Certains de nos sous-traitants sont situés aux États-Unis. Ces transferts sont encadrés par :
+                Certains de nos sous-traitants (Railway, Supabase) sont situés aux États-Unis. Ces transferts sont encadrés par :
               </p>
               <ul className="list-disc list-inside text-slate-300 mt-4 space-y-2">
                 <li>Les clauses contractuelles types de la Commission européenne</li>
@@ -146,7 +152,7 @@ export default function ConfidentialitePage() {
                 <li><strong className="text-white">Opposition</strong> — vous opposer au traitement</li>
               </ul>
               <p className="text-slate-300 leading-relaxed mt-4">
-                Pour exercer ces droits, contactez-nous à : <a href="mailto:dpo@rgpd-pro.fr" className="text-cyan-400 hover:underline">dpo@rgpd-pro.fr</a>
+                Pour exercer ces droits, contactez-nous à : <a href="mailto:contact@rgpd.pro" className="text-cyan-400 hover:underline">contact@rgpd.pro</a>
               </p>
               <p className="text-slate-300 leading-relaxed mt-4">
                 Vous pouvez également introduire une réclamation auprès de la CNIL : <a href="https://www.cnil.fr" target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:underline">www.cnil.fr</a>

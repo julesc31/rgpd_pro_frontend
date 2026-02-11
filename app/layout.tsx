@@ -3,6 +3,7 @@ import { GeistSans } from 'geist/font/sans'
 import { GeistMono } from 'geist/font/mono'
 import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
+import { BetaBanner } from '@/components/beta-banner'
 
 import { Source_Serif_4 as V0_Font_Source_Serif_4 } from 'next/font/google'
 
@@ -17,7 +18,7 @@ const _v0_fontVariables = `${GeistSans.variable} ${GeistMono.variable} ${_source
 
 export const metadata: Metadata = {
   title: 'RGPD_PRO - Audit & Conformité RGPD',
-  description: 'Scannez votre site comme la CNIL. Détectez les violations cookies, fingerprinting, dark patterns et estimez votre risque financier basé sur 2660 sanctions européennes.',
+  description: 'Scannez votre site comme la CNIL. Détectez les violations cookies, fingerprinting, dark patterns et estimez votre risque financier basé sur 2 091 sanctions européennes.',
   generator: 'RGPD_PRO',
 }
 
@@ -27,8 +28,9 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable}`}>
+    <html lang="fr" className={`${GeistSans.variable} ${GeistMono.variable}`}>
       <body className={_v0_fontVariables}>
+        <BetaBanner />
         {children}
         <Analytics />
       </body>
