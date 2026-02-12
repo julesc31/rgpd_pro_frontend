@@ -26,11 +26,12 @@ export default function RegisterPage() {
     setError(null)
 
     try {
+      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || (typeof window !== "undefined" ? window.location.origin : "")
       const { error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/scan`,
+          emailRedirectTo: `${siteUrl || window.location.origin}/scan`,
           data: { full_name: fullName },
         },
       })

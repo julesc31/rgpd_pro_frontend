@@ -169,7 +169,7 @@ export default function SettingsPage() {
                       <Input id="company" value={company} onChange={(e) => setCompany(e.target.value)} className="bg-slate-800/50 border-slate-700/50 text-slate-100" />
                     </div>
                     <Button type="submit" disabled={isLoading} className="w-full btn-cta">
-                      {isLoading ? "Enregistrement..." : "Save"}
+                      {isLoading ? "Enregistrement..." : "Enregistrer"}
                     </Button>
                   </form>
                 </CardContent>

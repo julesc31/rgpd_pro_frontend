@@ -48,7 +48,6 @@ import {
   Zap
 } from "lucide-react"
 import Link from "next/link"
-import { BetaFeedbackQuestionnaire } from "@/components/beta-feedback-questionnaire"
 
 // ============================================================================
 // CONFIGURATION (from scanner_config.py)
@@ -446,7 +445,7 @@ export default function ScanPage() {
     try {
       const supabase = createClient()
 
-      // Supprimer all selected scans
+      // Supprimer tous les scans sélectionnés
       const { error, count } = await supabase
         .from("scans")
         .delete()
@@ -831,18 +830,6 @@ export default function ScanPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-black to-slate-900 text-slate-100">
-      {(isActiveScanCompleted || isActiveScanFailed) && activeScan && (
-        <BetaFeedbackQuestionnaire
-          context={{
-            scanId: activeScan.id,
-            status: isActiveScanCompleted ? "completed" : "failed",
-            targetUrl: activeScan.target_url,
-            riskLevel: activeScan.risk_level ?? activeScan.scan_data?.summary?.risk_level,
-            violationsCount: activeScan.scan_data?.summary?.total_violations ?? 0,
-            errorMessage: isActiveScanFailed ? activeScan.current_phase : undefined,
-          }}
-        />
-      )}
       <div className="container mx-auto p-4 max-w-5xl">
         <DashboardNav userEmail={userEmail} />
 
@@ -1459,7 +1446,7 @@ export default function ScanPage() {
                             className="border-purple-500/50 text-purple-400 hover:bg-purple-500/10 bg-transparent"
                           >
                             <FolderArchive className="h-4 w-4 mr-1" />
-                            Forensics
+                            Forensique
                           </Button>
                           <Button
                             size="sm"

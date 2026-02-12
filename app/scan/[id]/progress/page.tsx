@@ -21,7 +21,6 @@ import {
   StopCircle,
   Terminal
 } from "lucide-react"
-import { BetaFeedbackQuestionnaire } from "@/components/beta-feedback-questionnaire"
 
 type ScanStatus = "pending" | "running" | "completed" | "failed"
 
@@ -298,15 +297,6 @@ export default function ScanProgressPage() {
   if (scan.status === "failed") {
     return (
       <div className="min-h-screen bg-gradient-to-br from-black to-slate-900 text-slate-100">
-        <BetaFeedbackQuestionnaire
-          context={{
-            scanId,
-            status: "failed",
-            targetUrl: scan.target_url,
-            riskLevel: scan.risk_level,
-            errorMessage: scan.current_phase,
-          }}
-        />
         <div className="container mx-auto p-4">
           <DashboardNav userEmail={userEmail} />
           <div className="max-w-2xl mx-auto mt-12">
@@ -341,18 +331,8 @@ export default function ScanProgressPage() {
 
   // Completed state
   if (scan.status === "completed") {
-    const violationsCount = scan.scan_data?.summary?.total_violations ?? 0
     return (
       <div className="min-h-screen bg-gradient-to-br from-black to-slate-900 text-slate-100">
-        <BetaFeedbackQuestionnaire
-          context={{
-            scanId,
-            status: "completed",
-            targetUrl: scan.target_url,
-            riskLevel: scan.risk_level ?? scan.scan_data?.summary?.risk_level,
-            violationsCount,
-          }}
-        />
         <div className="container mx-auto p-4">
           <DashboardNav userEmail={userEmail} />
           <div className="max-w-2xl mx-auto mt-12">
