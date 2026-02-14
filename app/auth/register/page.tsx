@@ -49,7 +49,9 @@ export default function RegisterPage() {
     setError(null)
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
+      options: {
+      redirectTo: `${window.location.origin.replace(/^https?:\/\/0\.0\.0\.0(:\d+)?/, "http://localhost$1")}/auth/callback`,
+    },
     })
     if (error) setError(error.message)
     else if (data?.url) window.location.href = data.url
