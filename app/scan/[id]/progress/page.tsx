@@ -159,13 +159,13 @@ export default function ScanProgressPage() {
       }
     }, 2000)
 
-    // Timeout après 10 minutes
+    // Timeout après 15 minutes (sites complexes + PDF)
     const timeout = setTimeout(() => {
       clearInterval(interval)
       if (scan.status !== "completed") {
         setError("Le scan a pris trop de temps. Veuillez réessayer.")
       }
-    }, 10 * 60 * 1000)
+    }, 15 * 60 * 1000)
 
     return () => {
       clearInterval(interval)

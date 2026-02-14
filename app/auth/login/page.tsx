@@ -10,6 +10,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { ArrowLeft } from "lucide-react"
+import { GoogleIcon } from "@/components/icons/google"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
@@ -33,6 +34,17 @@ export default function LoginPage() {
     } finally {
       setIsLoading(false)
     }
+  }
+
+  const handleGoogleSignIn = async () => {
+    const supabase = createClient()
+    setError(null)
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: `${window.location.origin}/scan` },
+    })
+    if (error) setError(error.message)
+    else if (data?.url) window.location.href = data.url
   }
 
   return (
@@ -76,6 +88,23 @@ export default function LoginPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleGoogleSignIn}
+                className="w-full border-slate-600 bg-white hover:bg-slate-100 text-slate-800"
+              >
+                <GoogleIcon className="h-5 w-5 mr-2" />
+                Continuer avec Google
+              </Button>
+              <div className="relative my-4">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t border-slate-700" />
+                </div>
+                <div className="relative flex justify-center text-xs">
+                  <span className="bg-slate-900 px-2 text-slate-500">ou</span>
+                </div>
+              </div>
               <form onSubmit={handleLogin} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="email" className="text-slate-300">Email</Label>
