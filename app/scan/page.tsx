@@ -163,22 +163,22 @@ export default function ScanPage() {
         data: { user },
       } = await supabase.auth.getUser()
 
-      if (!user) {
-        router.push("/auth/login")
-        return
-      }
+      // Mode guest: pas de redirection si pas connecté
+      if (user) {
+        setUserEmail(user.email || "")
+        
+        // Fetch all scans for logged in users
+        const { data: scansData } = await supabase
+          .from("scans")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
 
-      setUserEmail(user.email || "")
-
-      // Fetch all scans
-      const { data: scansData } = await supabase
-        .from("scans")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-
-      if (scansData) {
-        setScans(scansData)
+        if (scansData) {
+          setScans(scansData)
+        }
+      } else {
+        setUserEmail("Invité")
       }
       setScansLoading(false)
     }
@@ -197,7 +197,8 @@ export default function ScanPage() {
 
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      // Mode guest: ne pas poll l'historique, juste le scan actif
+      if (!user && !activeScanId) return
 
       const { data: scansData } = await supabase
         .from("scans")
@@ -275,7 +276,7 @@ export default function ScanPage() {
       const { data: scan, error: scanError } = await supabase
         .from("scans")
         .insert({
-          user_id: user.id,
+          user_id: odataId,
           target_url: urlToScan,
           scan_type: "hybrid",
           status: "pending",
@@ -313,7 +314,7 @@ export default function ScanPage() {
           },
           scan_mode: "hybrid",
           supabase_scan_id: scan.id,  // Pass Supabase ID for real-time progress updates
-          user_id: user.id,  // Pass user ID for storage organization
+          user_id: odataId,  // Pass user ID for storage organization
         }),
       })
 
