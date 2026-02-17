@@ -33,7 +33,7 @@ export async function updateSession(request: NextRequest) {
   if (
     !user &&
     (request.nextUrl.pathname.startsWith("/dashboard") ||
-      request.nextUrl.pathname.startsWith("/scan") ||
+
       request.nextUrl.pathname.startsWith("/report") ||
       request.nextUrl.pathname.startsWith("/reports") ||
       request.nextUrl.pathname.startsWith("/timeline") ||
