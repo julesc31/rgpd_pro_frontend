@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { DashboardNav } from "@/components/dashboard-nav"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -48,6 +48,7 @@ import {
   Zap,
   Shield,
   ChevronRight,
+  RotateCcw,
 } from "lucide-react"
 import Link from "next/link"
 
@@ -200,7 +201,18 @@ export default function ScanPage() {
   const [downloadingPdf, setDownloadingPdf] = useState(false)
   const [downloadingPdfScanId, setDownloadingPdfScanId] = useState<string | null>(null)
   const router = useRouter()
+  const searchParams = useSearchParams()
   const subscription = useSubscription()
+
+  // Pre-fill form when coming from a "Relancer le scan" redirect
+  useEffect(() => {
+    const urlParam = searchParams.get("url")
+    const modeParam = searchParams.get("mode")
+    if (urlParam) setTargetUrl(urlParam)
+    if (modeParam && ["quick", "standard", "forensic"].includes(modeParam)) {
+      setScanMode(modeParam as ScanMode)
+    }
+  }, [searchParams])
 
   useEffect(() => {
     const fetchData = async () => {
@@ -564,6 +576,15 @@ export default function ScanPage() {
     setActiveScanLogs([])
   }
 
+  const handleRelaunchScan = (scan: Scan) => {
+    setTargetUrl(scan.target_url)
+    if (scan.scan_type && ["quick", "standard", "forensic"].includes(scan.scan_type)) {
+      setScanMode(scan.scan_type as ScanMode)
+    }
+    handleCloseActiveScan()
+    window.scrollTo({ top: 0, behavior: "smooth" })
+  }
+
   // ── RENDER ────────────────────────────────────────────────────────────────
 
   return (
@@ -903,15 +924,36 @@ export default function ScanPage() {
 
                 {isActiveScanFailed && (
                   <div className="text-center py-4">
-                    <p className="text-slate-400 mb-3">
-                      {activeScan.current_phase && activeScan.current_phase !== "Échec"
-                        ? activeScan.current_phase
-                        : "Le scan a échoué. Cela peut être dû à un blocage WAF ou une protection anti-bot."}
-                    </p>
-                    <Button onClick={handleCloseActiveScan} variant="outline"
-                      className="border-slate-500 text-slate-200 hover:bg-slate-700 hover:text-white bg-transparent">
-                      Fermer
-                    </Button>
+                    {activeScan?.current_phase?.includes("Serveur redémarré") ? (
+                      <>
+                        <div className="flex items-center justify-center gap-2 text-amber-400 mb-2">
+                          <AlertCircle className="h-5 w-5" />
+                          <span className="font-medium">Scan interrompu par un redémarrage serveur</span>
+                        </div>
+                        <p className="text-slate-400 text-sm mb-4">
+                          Le serveur a redémarré pendant l'analyse (déploiement). Relancez le scan pour obtenir vos résultats.
+                        </p>
+                        <Button
+                          onClick={() => activeScan && handleRelaunchScan(activeScan)}
+                          className="btn-cta"
+                        >
+                          <RotateCcw className="mr-2 h-4 w-4" />
+                          Relancer le scan
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-slate-400 mb-3">
+                          {activeScan?.current_phase && activeScan.current_phase !== "Échec"
+                            ? activeScan.current_phase
+                            : "Le scan a échoué. Cela peut être dû à un blocage WAF ou une protection anti-bot."}
+                        </p>
+                        <Button onClick={handleCloseActiveScan} variant="outline"
+                          className="border-slate-500 text-slate-200 hover:bg-slate-700 hover:text-white bg-transparent">
+                          Fermer
+                        </Button>
+                      </>
+                    )}
                   </div>
                 )}
               </div>
@@ -1095,6 +1137,12 @@ export default function ScanPage() {
                             {expandedDownloadId === scan.id
                               ? <ChevronUp className="h-3 w-3 ml-1" />
                               : <ChevronDown className="h-3 w-3 ml-1" />}
+                          </Button>
+                        ) : scan.status === "failed" && scan.current_phase?.includes("Serveur redémarré") ? (
+                          <Button size="sm" variant="outline"
+                            onClick={() => handleRelaunchScan(scan)}
+                            className="border-amber-500/50 text-amber-400 hover:bg-amber-500/10 bg-transparent">
+                            <RotateCcw className="h-4 w-4 mr-2" />Relancer
                           </Button>
                         ) : (
                           <Button size="sm" variant="outline" disabled
