@@ -19,7 +19,8 @@ import {
   Loader2,
   AlertTriangle,
   StopCircle,
-  Terminal
+  Terminal,
+  RotateCcw,
 } from "lucide-react"
 
 type ScanStatus = "pending" | "running" | "completed" | "failed"
@@ -34,6 +35,7 @@ type LogEntry = {
 type Scan = {
   id: string
   target_url: string
+  scan_type?: string
   status: ScanStatus
   progress: number
   risk_level?: string
@@ -295,32 +297,57 @@ export default function ScanProgressPage() {
 
   // Failed state
   if (scan.status === "failed") {
+    const isServerRestart = scan.current_phase?.includes("Serveur redémarré")
     return (
       <div className="min-h-screen bg-gradient-to-br from-black to-slate-900 text-slate-100">
         <div className="container mx-auto p-4">
           <DashboardNav userEmail={userEmail} />
           <div className="max-w-2xl mx-auto mt-12">
-            <Card className="bg-slate-900/50 border-red-500/50 backdrop-blur-sm">
+            <Card className={`bg-slate-900/50 backdrop-blur-sm ${isServerRestart ? "border-amber-500/50" : "border-red-500/50"}`}>
               <CardContent className="p-8 text-center">
-                <XCircle className="h-16 w-16 text-red-400 mx-auto mb-4" />
-                <h2 className="text-xl font-bold text-slate-100 mb-2">
-                  Le scan a échoué
-                </h2>
-                <p className="text-slate-400 mb-2">
-                  {extractDomain(scan.target_url)}
-                </p>
-                <p className="text-sm text-slate-500 mb-6">
-                  {scan.current_phase && scan.current_phase !== "Échec"
-                    ? scan.current_phase
-                    : "Le site n'a pas pu être analysé. Cela peut être dû à un blocage WAF, une protection anti-bot, ou un problème de connexion."}
-                </p>
-                <Button
-                  onClick={handleBackToScan}
-                  className="btn-cta"
-                >
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                  Réessayer
-                </Button>
+                {isServerRestart ? (
+                  <>
+                    <AlertTriangle className="h-16 w-16 text-amber-400 mx-auto mb-4" />
+                    <h2 className="text-xl font-bold text-slate-100 mb-2">
+                      Scan interrompu
+                    </h2>
+                    <p className="text-slate-400 mb-2">
+                      {extractDomain(scan.target_url)}
+                    </p>
+                    <p className="text-sm text-slate-500 mb-6">
+                      Le serveur a redémarré pendant l'analyse (déploiement rolling). Relancez le scan pour obtenir vos résultats.
+                    </p>
+                    <Button
+                      onClick={() => router.push(`/scan?url=${encodeURIComponent(scan.target_url)}&mode=${scan.scan_type || "standard"}`)}
+                      className="btn-cta"
+                    >
+                      <RotateCcw className="mr-2 h-4 w-4" />
+                      Relancer le scan
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <XCircle className="h-16 w-16 text-red-400 mx-auto mb-4" />
+                    <h2 className="text-xl font-bold text-slate-100 mb-2">
+                      Le scan a échoué
+                    </h2>
+                    <p className="text-slate-400 mb-2">
+                      {extractDomain(scan.target_url)}
+                    </p>
+                    <p className="text-sm text-slate-500 mb-6">
+                      {scan.current_phase && scan.current_phase !== "Échec"
+                        ? scan.current_phase
+                        : "Le site n'a pas pu être analysé. Cela peut être dû à un blocage WAF, une protection anti-bot, ou un problème de connexion."}
+                    </p>
+                    <Button
+                      onClick={handleBackToScan}
+                      className="btn-cta"
+                    >
+                      <ArrowLeft className="mr-2 h-4 w-4" />
+                      Réessayer
+                    </Button>
+                  </>
+                )}
               </CardContent>
             </Card>
           </div>
