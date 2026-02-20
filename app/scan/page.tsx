@@ -854,7 +854,7 @@ export default function ScanPage() {
                   </div>
                 )}
 
-                <ScanTerminal logs={activeScanLogs} isRunning={isActiveScanRunning} />
+                <ScanTerminal logs={activeScanLogs} isRunning={isActiveScanRunning} scanType={activeScan?.scan_type} />
 
                 {isActiveScanRunning && (
                   <div className="flex justify-end">

@@ -13,7 +13,14 @@ type LogEntry = {
 type ScanTerminalProps = {
   logs: LogEntry[]
   isRunning?: boolean
+  scanType?: string
   className?: string
+}
+
+const scanTypeLabel: Record<string, string> = {
+  quick: "flash",
+  standard: "standard",
+  forensic: "forensic",
 }
 
 const levelColors: Record<string, string> = {
@@ -29,7 +36,7 @@ const levelColors: Record<string, string> = {
   forensic: "text-indigo-400",
 }
 
-export function ScanTerminal({ logs, isRunning = false, className }: ScanTerminalProps) {
+export function ScanTerminal({ logs, isRunning = false, scanType, className }: ScanTerminalProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
 
   // Auto-scroll to bottom when new logs arrive
@@ -53,7 +60,9 @@ export function ScanTerminal({ logs, isRunning = false, className }: ScanTermina
           <div className="w-3 h-3 rounded-full bg-yellow-500/80" />
           <div className="w-3 h-3 rounded-full bg-green-500/80" />
         </div>
-        <span className="text-slate-500 text-xs ml-2">scan-logs</span>
+        <span className="text-slate-500 text-xs ml-2">
+          scan-logs{scanType ? <span className="text-slate-600"> [{scanTypeLabel[scanType] ?? scanType}]</span> : null}
+        </span>
         {isRunning && (
           <span className="ml-auto flex items-center gap-2 text-xs text-cyan-400">
             <span className="relative flex h-2 w-2">
