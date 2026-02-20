@@ -13,15 +13,9 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
-# Build-time: API URL pour le client (remplacée à l'exec par les env du compose)
+# Seule variable publique nécessaire au build (embarquée côté client)
 ARG NEXT_PUBLIC_API_URL=http://localhost:8000
-ARG NEXT_PUBLIC_SUPABASE_URL=
-ARG NEXT_PUBLIC_SUPABASE_ANON_KEY=
-ARG NEXT_PUBLIC_SITE_URL=
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
-ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
-ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
-ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL
 RUN npm run build
 
 # Runner
@@ -38,4 +32,10 @@ USER nextjs
 EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
+# Variables runtime injectées par Railway (ne pas mettre en dur ici) :
+#   DATABASE_URL          — PostgreSQL Railway
+#   NEXTAUTH_SECRET       — secret JWT NextAuth
+#   NEXTAUTH_URL          — URL publique du frontend (ex: https://mon-app.railway.app)
+#   BACKEND_JWT_SECRET    — optionnel, partagé avec le backend pour vérifier les tokens
+#   R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME — Cloudflare R2
 CMD ["node", "server.js"]

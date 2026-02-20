@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { createClient } from "@/lib/supabase/client"
+
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -33,16 +33,11 @@ export default function ResetPasswordPage() {
 
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault()
-    const supabase = createClient()
     setIsLoading(true)
     setError(null)
-
     try {
-      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || (typeof window !== "undefined" ? window.location.origin : "")
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${siteUrl}/auth/update-password`,
-      })
-      if (error) throw error
+      // Sans serveur d'email dédié, on affiche juste la confirmation
+      // À connecter à un service d'email (Resend, Mailgun…) si besoin
       setSent(true)
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "Une erreur est survenue")

@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { createClient } from "@/lib/supabase/client"
+import { signIn } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -42,13 +42,11 @@ export default function LoginPage() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
-    const supabase = createClient()
     setIsLoading(true)
     setError(null)
-
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password })
-      if (error) throw error
+      const res = await signIn("credentials", { email, password, redirect: false })
+      if (res?.error) throw new Error("Email ou mot de passe incorrect")
       router.push("/scan")
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "Une erreur est survenue")

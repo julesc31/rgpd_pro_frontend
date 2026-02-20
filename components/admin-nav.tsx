@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { LayoutDashboard, Users, Activity, BarChart3, Settings, LogOut, Bell, Menu, X } from "lucide-react"
-import { createClient } from "@/lib/supabase/client"
+import { signOut } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 
@@ -15,9 +15,7 @@ export function AdminNav({ userEmail }: { userEmail: string }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   const handleLogout = async () => {
-    const supabase = createClient()
-    await supabase.auth.signOut()
-    router.push("/auth/login")
+    await signOut({ callbackUrl: "/auth/login" })
   }
 
   const navItems = [

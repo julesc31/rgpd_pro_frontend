@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation"
-import { createClient } from "@/lib/supabase/server"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
+import { apiGet } from "@/lib/api"
 import { AdminNav } from "@/components/admin-nav"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -9,22 +11,11 @@ import { Switch } from "@/components/ui/switch"
 import { Server, Bell, Shield, Database, Save } from "lucide-react"
 
 export default async function AdminSettingsPage() {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    redirect("/auth/login")
-  }
-
-  // Check if user is admin
-  const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).single()
-
-  if (profile?.role !== "admin") {
-    redirect("/dashboard")
-  }
+  const session = await getServerSession(authOptions)
+  if (!session?.user) redirect("/auth/login")
+  if (session.user.role !== "admin") redirect("/dashboard")
+  const user = session.user
+  const token = session.backendToken
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-black to-slate-900 text-slate-100">

@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { useRouter, useParams } from "next/navigation"
-import { createClient } from "@/lib/supabase/client"
+import { useSession } from "next-auth/react"
+import { apiFetch } from "@/lib/api"
 import { DashboardNav } from "@/components/dashboard-nav"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -66,21 +67,13 @@ export default function ScanProgressPage() {
   const [logs, setLogs] = useState<LogEntry[]>([])
   const [showTerminal, setShowTerminal] = useState(true)
 
-  // Fetch user
-  useEffect(() => {
-    const fetchUser = async () => {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        setUserEmail(user.email || "")
-      } else {
-        router.push("/auth/login")
-      }
-    }
-    fetchUser()
-  }, [router])
+  const { data: session } = useSession()
 
-  // Fetch scan from Supabase
+  useEffect(() => {
+    if (session?.user?.email) setUserEmail(session.user.email)
+  }, [session])
+
+  // Fetch scan from backend
   const fetchScan = useCallback(async () => {
     const supabase = createClient()
     const { data, error: dbError } = await supabase
@@ -186,23 +179,22 @@ export default function ScanProgressPage() {
   const [isAnnulerling, setIsAnnulerling] = useState(false)
 
   const handleAnnulerScan = async () => {
-    if (!scan) return
-
+    if (!scan || !session?.backendToken) return
     setIsAnnulerling(true)
     try {
-      const supabase = createClient()
-
-      // Update scan status to failed in Supabase
-      await supabase
-        .from("scans")
-        .update({
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+      await fetch(`${apiUrl}/scans/${scanId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.backendToken}`,
+        },
+        body: JSON.stringify({
           status: "failed",
           current_phase: "Annulé par l'utilisateur",
           completed_at: new Date().toISOString(),
-        })
-        .eq("id", scanId)
-
-      // Redirect back to scan list
+        }),
+      })
       router.push("/scan")
     } catch (error) {
       console.error("Failed to cancel scan:", error)

@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation"
-import { createClient } from "@/lib/supabase/server"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
+import { apiGet } from "@/lib/api"
 import { AdminNav } from "@/components/admin-nav"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -9,36 +11,15 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Users, Search, Filter, MoreVertical, Shield, CheckCircle } from "lucide-react"
 
 export default async function AdminUsersPage() {
-  const supabase = await createClient()
+  const session = await getServerSession(authOptions)
+  if (!session?.user) redirect("/auth/login")
+  if (session.user.role !== "admin") redirect("/dashboard")
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    redirect("/auth/login")
-  }
-
-  // Check if user is admin
-  const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).single()
-
-  if (profile?.role !== "admin") {
-    redirect("/dashboard")
-  }
-
-  // Fetch all users with their scan counts
-  const { data: allUsers } = await supabase.from("profiles").select("*").order("created_at", { ascending: false })
-
-  // Get scan counts for each user
-  const usersWithStats = await Promise.all(
-    (allUsers || []).map(async (userProfile) => {
-      const { data: scans } = await supabase.from("scans").select("*").eq("user_id", userProfile.id)
-      return {
-        ...userProfile,
-        scanCount: scans?.length || 0,
-      }
-    }),
-  )
+  const user = session.user
+  let usersWithStats: any[] = []
+  try {
+    usersWithStats = await apiGet<any[]>("/admin/users", session.backendToken)
+  } catch { /* données non disponibles */ }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-black to-slate-900 text-slate-100">

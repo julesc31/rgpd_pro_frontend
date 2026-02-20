@@ -1,40 +1,38 @@
 import type React from "react"
 import { redirect } from "next/navigation"
-import { createClient } from "@/lib/supabase/server"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
+import { apiGet } from "@/lib/api"
 import { AdminNav } from "@/components/admin-nav"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { TrendingUp, Activity, Users, Shield, AlertCircle } from "lucide-react"
 
 export default async function AdminMetricsPage() {
-  const supabase = await createClient()
+  const session = await getServerSession(authOptions)
+  if (!session?.user) redirect("/auth/login")
+  if (session.user.role !== "admin") redirect("/dashboard")
+  const user = session.user
+  const token = session.backendToken
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    redirect("/auth/login")
-  }
-
-  // Check if user is admin
-  const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).single()
-
-  if (profile?.role !== "admin") {
-    redirect("/dashboard")
-  }
-
-  // Fetch metrics data
-  const { data: allUsers } = await supabase.from("profiles").select("*")
-  const { data: allScans } = await supabase.from("scans").select("*")
-  const { data: allReports } = await supabase.from("reports").select("*")
+  // Fetch metrics data via backend API
+  let allUsers: any[] = []
+  let allScans: any[] = []
+  let allReports: any[] = []
+  try {
+    ;[allUsers, allScans, allReports] = await Promise.all([
+      apiGet("/admin/profiles", token),
+      apiGet("/admin/scans", token),
+      apiGet("/admin/reports", token),
+    ])
+  } catch { /* données non disponibles */ }
 
   // Calculate metrics
   const totalUsers = allUsers?.length || 0
   const totalScans = allScans?.length || 0
-  const totalVulnerabilities = allReports?.reduce((sum, r) => sum + (r.vulnerabilities_found || 0), 0) || 0
+  const totalVulnerabilities = allReports?.reduce((sum: number, r: any) => sum + (r.vulnerabilities_found || 0), 0) || 0
   const avgSecurityScore =
     allReports && allReports.length > 0
-      ? Math.round(allReports.reduce((sum, r) => sum + (r.security_score || 0), 0) / allReports.length)
+      ? Math.round(allReports.reduce((sum: number, r: any) => sum + (r.security_score || 0), 0) / allReports.length)
       : 0
 
   // Mock time-series data for charts

@@ -1,5 +1,51 @@
 // API configuration and helpers
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/$/, "")
+
+// ── Helpers authentifiés (utilisent le backendToken NextAuth) ──────────────
+
+export async function apiFetch(
+  path: string,
+  backendToken: string,
+  options: RequestInit = {}
+): Promise<Response> {
+  const { headers: extraHeaders, ...rest } = options
+  return fetch(`${API_BASE_URL}${path}`, {
+    ...rest,
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${backendToken}`,
+      ...(extraHeaders as Record<string, string>),
+    },
+  })
+}
+
+export async function apiGet<T>(path: string, token: string): Promise<T> {
+  const res = await apiFetch(path, token)
+  if (!res.ok) throw new Error(`GET ${path} → ${res.status}`)
+  return res.json() as Promise<T>
+}
+
+export async function apiPost<T>(path: string, token: string, body: unknown): Promise<T> {
+  const res = await apiFetch(path, token, { method: "POST", body: JSON.stringify(body) })
+  if (!res.ok) throw new Error(`POST ${path} → ${res.status}`)
+  return res.json() as Promise<T>
+}
+
+export async function apiPatch<T>(path: string, token: string, body: unknown): Promise<T> {
+  const res = await apiFetch(path, token, { method: "PATCH", body: JSON.stringify(body) })
+  if (!res.ok) throw new Error(`PATCH ${path} → ${res.status}`)
+  return res.json() as Promise<T>
+}
+
+export async function apiDelete(path: string, token: string, body?: unknown): Promise<void> {
+  const res = await apiFetch(path, token, {
+    method: "DELETE",
+    ...(body ? { body: JSON.stringify(body) } : {}),
+  })
+  if (!res.ok) throw new Error(`DELETE ${path} → ${res.status}`)
+}
+
+// ── Helper sans auth (inchangé, pour l'existant) ──────────────────────────
 
 export interface ApiError {
   detail: string

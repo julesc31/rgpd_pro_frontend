@@ -1,6 +1,8 @@
 import type React from "react"
 import { redirect } from "next/navigation"
-import { createClient } from "@/lib/supabase/server"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
+import { apiGet } from "@/lib/api"
 import { AdminNav } from "@/components/admin-nav"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -9,22 +11,11 @@ import { Input } from "@/components/ui/input"
 import { Activity, Search, Filter, CheckCircle, Clock, XCircle } from "lucide-react"
 
 export default async function AdminScansPage() {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    redirect("/auth/login")
-  }
-
-  // Check if user is admin
-  const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).single()
-
-  if (profile?.role !== "admin") {
-    redirect("/dashboard")
-  }
+  const session = await getServerSession(authOptions)
+  if (!session?.user) redirect("/auth/login")
+  if (session.user.role !== "admin") redirect("/dashboard")
+  const user = session.user
+  const token = session.backendToken
 
   // Fetch all scans with user information
   const { data: allScans } = await supabase

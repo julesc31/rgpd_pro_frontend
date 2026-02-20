@@ -3,6 +3,7 @@ import { GeistSans } from 'geist/font/sans'
 import { GeistMono } from 'geist/font/mono'
 import './globals.css'
 import { BetaBanner } from '@/components/beta-banner'
+import { Providers } from './providers'
 import { Source_Serif_4 as V0_Font_Source_Serif_4 } from 'next/font/google'
 
 // Initialize fonts
@@ -28,8 +29,10 @@ export default function RootLayout({
   return (
     <html lang="fr" className={`${GeistSans.variable} ${GeistMono.variable}`}>
       <body className={_v0_fontVariables}>
-        <BetaBanner />
-        {children}
+        <Providers>
+          <BetaBanner />
+          {children}
+        </Providers>
       </body>
     </html>
   )

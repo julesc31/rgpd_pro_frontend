@@ -3,7 +3,7 @@
 import type React from "react"
 import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { createClient } from "@/lib/supabase/client"
+import { useSession } from "next-auth/react"
 import { DashboardNav } from "@/components/dashboard-nav"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -177,8 +177,8 @@ type Scan = {
 // ============================================================================
 
 export default function ScanPage() {
+  const { data: session } = useSession()
   const [userEmail, setUserEmail] = useState("")
-  const [userId, setUserId] = useState<string | null>(null)
   const [targetUrl, setTargetUrl] = useState("https://")
   const [scanMode, setScanMode] = useState<ScanMode>("standard")
   const [sector, setSector] = useState("")
@@ -215,112 +215,94 @@ export default function ScanPage() {
   }, [searchParams])
 
   useEffect(() => {
+    if (session?.user?.email) setUserEmail(session.user.email)
+  }, [session])
+
+  useEffect(() => {
+    if (!session?.backendToken) return
     const fetchData = async () => {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-
-      if (user) {
-        setUserEmail(user.email || "")
-        setUserId(user.id)
-
-        const { data: scansData } = await supabase
-          .from("scans")
-          .select("*")
-          .eq("user_id", user.id)
-          .order("created_at", { ascending: false })
-
-        if (scansData) setScans(scansData)
-      } else {
-        setUserEmail("Invité")
+      try {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+        const res = await fetch(`${apiUrl}/scans`, {
+          headers: { Authorization: `Bearer ${session.backendToken}` },
+        })
+        if (res.ok) {
+          const data = await res.json()
+          setScans(Array.isArray(data) ? data : (data.scans || []))
+        }
+      } catch { /* ignore */ } finally {
+        setScansLoading(false)
       }
-      setScansLoading(false)
     }
-
     fetchData()
-  }, [router])
+  }, [session?.backendToken])
 
   // Poll for running scans
   useEffect(() => {
     const hasRunningScans = scans.some(s => s.status === "running" || s.status === "pending")
-    if (!hasRunningScans) return
+    if (!hasRunningScans || !session?.backendToken) return
 
     const interval = setInterval(async () => {
       if (isDeleting || showDeleteConfirm) return
-
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user && !activeScanId) return
-
-      const { data: scansData } = await supabase
-        .from("scans")
-        .select("*")
-        .eq("user_id", user!.id)
-        .order("created_at", { ascending: false })
-
-      if (scansData) {
+      try {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+        const res = await fetch(`${apiUrl}/scans`, {
+          headers: { Authorization: `Bearer ${session.backendToken}` },
+        })
+        if (!res.ok) return
+        const raw = await res.json()
+        const scansData: Scan[] = Array.isArray(raw) ? raw : (raw.scans || [])
         const newlyCompleted = scansData.some(newScan => {
           const oldScan = scans.find(s => s.id === newScan.id)
           return oldScan && oldScan.status !== "completed" && newScan.status === "completed"
         })
         if (newlyCompleted) subscription.refresh()
-
         setScans(scansData)
-
         if (activeScanId) {
           const activeScan = scansData.find(s => s.id === activeScanId)
           if (activeScan?.scan_logs && Array.isArray(activeScan.scan_logs)) {
             setActiveScanLogs(activeScan.scan_logs)
           }
         }
-      }
+      } catch { /* ignore */ }
     }, 2000)
 
     return () => clearInterval(interval)
-  }, [scans, isDeleting, showDeleteConfirm, activeScanId])
+  }, [scans, isDeleting, showDeleteConfirm, activeScanId, session?.backendToken])
 
   const handleStartScan = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!session?.backendToken || !session.user?.id) {
+      setError("Non authentifié — veuillez vous reconnecter")
+      return
+    }
     setIsLoading(true)
     setError(null)
 
     try {
-      const supabase = createClient()
-      const { data: { user, session } } = await supabase.auth.getSession().then(async (s) => {
-        if (s.data.session) return s
-        const u = await supabase.auth.getUser()
-        return { data: { user: u.data.user, session: null } }
-      })
-      const { data: authData } = await supabase.auth.getSession()
-      const currentUser = authData.session?.user
-      const accessToken = authData.session?.access_token
-
-      if (!currentUser) {
-        throw new Error("Non authentifié — veuillez vous connecter")
-      }
-
       let urlToScan = targetUrl.trim()
       if (!urlToScan.startsWith("http://") && !urlToScan.startsWith("https://")) {
         urlToScan = "https://" + urlToScan
       }
+      try { new URL(urlToScan) } catch { throw new Error("URL invalide") }
 
-      try {
-        new URL(urlToScan)
-      } catch {
-        throw new Error("URL invalide")
-      }
-
-      // Company info required for standard + forensic
       if (scanMode !== "quick") {
         if (!sector) throw new Error("Veuillez sélectionner un secteur d'activité")
         if (!revenueBracket) throw new Error("Veuillez sélectionner un chiffre d'affaires")
         if (!employeeBracket) throw new Error("Veuillez sélectionner un nombre d'employés")
       }
 
-      // Create scan record in Supabase
-      const { data: scan, error: scanError } = await supabase
-        .from("scans")
-        .insert({
-          user_id: currentUser.id,
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+      const authHeaders = {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.backendToken}`,
+      }
+
+      // Créer l'enregistrement scan via le backend
+      const scanRes = await fetch(`${apiUrl}/scans`, {
+        method: "POST",
+        headers: authHeaders,
+        body: JSON.stringify({
           target_url: urlToScan,
           scan_type: scanMode,
           status: "pending",
@@ -328,11 +310,10 @@ export default function ScanPage() {
           company_sector: sector || null,
           company_revenue_bracket: revenueBracket || null,
           company_employee_bracket: employeeBracket || null,
-        })
-        .select()
-        .single()
-
-      if (scanError) throw scanError
+        }),
+      })
+      if (!scanRes.ok) throw new Error(`Erreur création scan: ${scanRes.status}`)
+      const scan = await scanRes.json()
 
       setScans(prev => [scan, ...prev])
       setActiveScanId(scan.id)
@@ -340,42 +321,27 @@ export default function ScanPage() {
       setShowActiveScan(true)
       setTargetUrl("https://")
 
-      // Call backend with JWT
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-      }
-      if (accessToken) {
-        headers["Authorization"] = `Bearer ${accessToken}`
-      }
-
+      // Lancer le scan réel
       const response = await fetch(`${apiUrl}/scan`, {
         method: "POST",
-        headers,
+        headers: authHeaders,
         body: JSON.stringify({
           url: urlToScan,
           company_info: scanMode !== "quick" ? {
             name: new URL(urlToScan).hostname.replace("www.", ""),
             revenue: getRevenueValue(revenueBracket),
             employee_count: getEmployeeValue(employeeBracket),
-            sector: sector,
+            sector,
           } : null,
           scan_mode: scanMode,
-          supabase_scan_id: scan.id,
-          user_id: currentUser.id,
+          scan_id: scan.id,
+          user_id: session.user.id,
         }),
       })
-
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
         throw new Error(errorData.detail || `Erreur serveur: ${response.status}`)
       }
-
-      await supabase
-        .from("scans")
-        .update({ status: "running", progress: 5 })
-        .eq("id", scan.id)
-
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "Une erreur est survenue")
     } finally {
@@ -441,13 +407,19 @@ export default function ScanPage() {
   }
 
   const handleDeleteSelected = async () => {
-    if (selectedScans.size === 0) return
+    if (selectedScans.size === 0 || !session?.backendToken) return
     setIsDeleting(true)
     const idsToDelete = Array.from(selectedScans)
     try {
-      const supabase = createClient()
-      const { error } = await supabase.from("scans").delete().in("id", idsToDelete)
-      if (error) throw error
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+      await fetch(`${apiUrl}/scans`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.backendToken}`,
+        },
+        body: JSON.stringify({ ids: idsToDelete }),
+      })
       setScans(prev => prev.filter(s => !selectedScans.has(s.id)))
       setSelectedScans(new Set())
       setShowDeleteConfirm(false)
@@ -459,14 +431,22 @@ export default function ScanPage() {
   }
 
   const handleCancelScan = async (scanId: string) => {
+    if (!session?.backendToken) return
     setCancellingId(scanId)
     try {
-      const supabase = createClient()
-      await supabase.from("scans").update({
-        status: "failed",
-        current_phase: "Annulé par l'utilisateur",
-        completed_at: new Date().toISOString(),
-      }).eq("id", scanId)
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+      await fetch(`${apiUrl}/scans/${scanId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.backendToken}`,
+        },
+        body: JSON.stringify({
+          status: "failed",
+          current_phase: "Annulé par l'utilisateur",
+          completed_at: new Date().toISOString(),
+        }),
+      })
       await new Promise(resolve => setTimeout(resolve, 500))
       setScans(prev => prev.map(s =>
         s.id === scanId ? { ...s, status: "failed", completed_at: new Date().toISOString() } : s
@@ -503,65 +483,87 @@ export default function ScanPage() {
 
   const handleDownloadHtml = async (scanId?: string) => {
     const id = scanId || activeScanId
-    if (!id) return
-    const supabase = createClient()
-    const { data } = await supabase.from("scans").select("report_html, target_url").eq("id", id).single()
-    if (!data?.report_html) { setError("Rapport HTML non disponible"); return }
-    triggerDownload(
-      new Blob([data.report_html], { type: "application/octet-stream" }),
-      `rapport-rgpd-${extractDomain(data.target_url)}.html`
-    )
+    if (!id || !session?.backendToken) return
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+      const res = await fetch(`${apiUrl}/scans/${id}?fields=report_html,target_url`, {
+        headers: { Authorization: `Bearer ${session.backendToken}` },
+      })
+      if (!res.ok) { setError("Rapport HTML non disponible"); return }
+      const data = await res.json()
+      if (!data?.report_html) { setError("Rapport HTML non disponible"); return }
+      triggerDownload(
+        new Blob([data.report_html], { type: "application/octet-stream" }),
+        `rapport-rgpd-${extractDomain(data.target_url)}.html`
+      )
+    } catch { setError("Rapport HTML non disponible") }
   }
 
   const handleDownloadForensics = async (scanId?: string) => {
     const id = scanId || activeScanId
-    if (!id) return
-    const supabase = createClient()
-    const { data } = await supabase.from("scans").select("storage_path").eq("id", id).single()
-    if (!data?.storage_path) { setError("Archive forensique non disponible"); return }
-    const { data: fileData, error: dlError } = await supabase.storage.from("scan-results").download(data.storage_path)
-    if (dlError || !fileData) { setError("Erreur lors du téléchargement de l'archive"); return }
-    triggerDownload(fileData, data.storage_path.split("/").pop() || "forensics.zip")
+    if (!id || !session?.backendToken) return
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+      const res = await fetch(`${apiUrl}/scans/${id}?fields=storage_path`, {
+        headers: { Authorization: `Bearer ${session.backendToken}` },
+      })
+      if (!res.ok) { setError("Archive forensique non disponible"); return }
+      const data = await res.json()
+      if (!data?.storage_path) { setError("Archive forensique non disponible"); return }
+      const dlRes = await fetch(`/api/r2/download?key=${encodeURIComponent(data.storage_path)}`)
+      if (!dlRes.ok) { setError("Erreur lors du téléchargement de l'archive"); return }
+      triggerDownload(await dlRes.blob(), data.storage_path.split("/").pop() || "forensics.zip")
+    } catch { setError("Erreur lors du téléchargement de l'archive") }
   }
 
   const handleDownloadJson = async (scanId?: string, url?: string) => {
     const id = scanId || activeScanId
-    if (!id) return
-    const supabase = createClient()
-    const { data } = await supabase.from("scans").select("scan_data, target_url").eq("id", id).single()
-    if (!data?.scan_data) { setError("Données JSON non disponibles"); return }
-    triggerDownload(
-      new Blob([JSON.stringify(data.scan_data, null, 2)], { type: "application/octet-stream" }),
-      `scan-data-${extractDomain(url || data.target_url)}.json`
-    )
+    if (!id || !session?.backendToken) return
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+      const res = await fetch(`${apiUrl}/scans/${id}?fields=scan_data,target_url`, {
+        headers: { Authorization: `Bearer ${session.backendToken}` },
+      })
+      if (!res.ok) { setError("Données JSON non disponibles"); return }
+      const data = await res.json()
+      if (!data?.scan_data) { setError("Données JSON non disponibles"); return }
+      triggerDownload(
+        new Blob([JSON.stringify(data.scan_data, null, 2)], { type: "application/octet-stream" }),
+        `scan-data-${extractDomain(url || data.target_url)}.json`
+      )
+    } catch { setError("Données JSON non disponibles") }
   }
 
   const handleDownloadPdf = async (scanId?: string, targetUrlOverride?: string) => {
     const id = scanId || activeScanId
-    if (!id) return
+    if (!id || !session?.backendToken) return
     if (scanId) setDownloadingPdfScanId(scanId)
     else setDownloadingPdf(true)
     try {
-      const supabase = createClient()
-      const { data } = await supabase.from("scans").select("scan_data, target_url, report_pdf_path").eq("id", id).single()
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+      const res = await fetch(`${apiUrl}/scans/${id}?fields=scan_data,target_url,report_pdf_path`, {
+        headers: { Authorization: `Bearer ${session.backendToken}` },
+      })
+      if (!res.ok) { setError("Données du rapport non disponibles pour le PDF"); return }
+      const data = await res.json()
       const domain = extractDomain(targetUrlOverride || data?.target_url || "rapport")
 
       if (data?.report_pdf_path) {
-        const { data: fileData, error: dlError } = await supabase.storage.from("scan-results").download(data.report_pdf_path)
-        if (!dlError && fileData) { triggerDownload(fileData, `rapport-rgpd-${domain}.pdf`); return }
+        const dlRes = await fetch(`/api/r2/download?key=${encodeURIComponent(data.report_pdf_path)}`)
+        if (dlRes.ok) { triggerDownload(await dlRes.blob(), `rapport-rgpd-${domain}.pdf`); return }
       }
       if (!data?.scan_data) { setError("Données du rapport non disponibles pour le PDF"); return }
 
-      const res = await fetch("/api/scan/generate-pdf", {
+      const pdfRes = await fetch("/api/scan/generate-pdf", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data.scan_data),
       })
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error((err as { detail?: string }).detail || `Erreur ${res.status}`)
+      if (!pdfRes.ok) {
+        const err = await pdfRes.json().catch(() => ({}))
+        throw new Error((err as { detail?: string }).detail || `Erreur ${pdfRes.status}`)
       }
-      triggerDownload(await res.blob(), `rapport-rgpd-${domain}.pdf`)
+      triggerDownload(await pdfRes.blob(), `rapport-rgpd-${domain}.pdf`)
     } catch (error) {
       setError(error instanceof Error ? error.message : "Erreur lors du téléchargement du PDF")
     } finally {

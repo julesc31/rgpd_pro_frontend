@@ -2,8 +2,9 @@
 
 import type React from "react"
 import { useState, useEffect } from "react"
+import { useSession, signOut } from "next-auth/react"
 import { useRouter } from "next/navigation"
-import { createClient } from "@/lib/supabase/client"
+import { apiGet, apiPatch } from "@/lib/api"
 import { DashboardNav } from "@/components/dashboard-nav"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -16,11 +17,12 @@ import { User, Shield, Bell, Key, Trash2, Save, AlertCircle } from "lucide-react
 import { Badge } from "@/components/ui/badge"
 
 export default function SettingsPage() {
-  const [userEmail, setUserEmail] = useState("")
+  const { data: session } = useSession()
+  const router = useRouter()
+
   const [profile, setProfile] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
-  const router = useRouter()
 
   const [fullName, setFullName] = useState("")
   const [company, setCompany] = useState("")
@@ -34,34 +36,31 @@ export default function SettingsPage() {
   const [securityAlerts, setSecurityAlerts] = useState(true)
 
   useEffect(() => {
-    const fetchUserData = async () => {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        setUserEmail(user.email || "")
-        const { data: profileData } = await supabase.from("profiles").select("*").eq("id", user.id).single()
-        if (profileData) {
-          setProfile(profileData)
-          setFullName(profileData.full_name || "")
-          setCompany(profileData.company || "")
-        }
-      } else {
-        router.push("/auth/login")
+    if (!session?.backendToken) return
+    const fetchProfile = async () => {
+      try {
+        const data = await apiGet<any>("/profiles/me", session.backendToken)
+        setProfile(data)
+        setFullName(data.full_name || "")
+        setCompany(data.company || "")
+      } catch {
+        // profil non disponible
       }
     }
-    fetchUserData()
-  }, [router])
+    fetchProfile()
+  }, [session?.backendToken])
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!session?.backendToken) return
     setIsLoading(true)
     setMessage(null)
     try {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error("Non authentifié")
-      const { error } = await supabase.from("profiles").update({ full_name: fullName, company: company, updated_at: new Date().toISOString() }).eq("id", user.id)
-      if (error) throw error
+      await apiPatch("/profiles/me", session.backendToken, {
+        full_name: fullName,
+        company,
+        updated_at: new Date().toISOString(),
+      })
       setMessage({ type: "success", text: "Profil mis à jour avec succès !" })
     } catch (error: unknown) {
       setMessage({ type: "error", text: error instanceof Error ? error.message : "Échec de la mise à jour" })
@@ -85,9 +84,13 @@ export default function SettingsPage() {
       return
     }
     try {
-      const supabase = createClient()
-      const { error } = await supabase.auth.updateUser({ password: newPassword })
-      if (error) throw error
+      const res = await fetch("/api/auth/update-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currentPassword, newPassword }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Échec du changement de mot de passe")
       setMessage({ type: "success", text: "Mot de passe modifié avec succès !" })
       setCurrentPassword("")
       setNewPassword("")
@@ -101,14 +104,10 @@ export default function SettingsPage() {
 
   const handleDeleteAccount = async () => {
     if (!confirm("Êtes-vous sûr de vouloir supprimer votre compte ? Cette action est irréversible.")) return
-    try {
-      const supabase = createClient()
-      await supabase.auth.signOut()
-      router.push("/")
-    } catch (error: unknown) {
-      setMessage({ type: "error", text: error instanceof Error ? error.message : "Échec de la suppression" })
-    }
+    await signOut({ callbackUrl: "/" })
   }
+
+  const userEmail = session?.user?.email || ""
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-black to-slate-900 text-slate-100">
@@ -229,36 +228,22 @@ export default function SettingsPage() {
                 <CardDescription className="text-slate-400">Choisissez les notifications que vous souhaitez recevoir</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="flex items-center justify-between p-4 bg-slate-800/30 rounded-lg border border-slate-700/50">
-                  <div className="space-y-1">
-                    <p className="text-slate-200 font-medium">Notifications par email</p>
-                    <p className="text-sm text-slate-400">Recevoir les notifications par email</p>
+                {[
+                  { label: "Notifications par email", desc: "Recevoir les notifications par email", value: emailNotifications, set: setEmailNotifications },
+                  { label: "Alertes de scan", desc: "Être notifié quand les scans sont terminés", value: scanAlerts, set: setScanAlerts },
+                  { label: "Alertes de sécurité", desc: "Notifications pour les violations critiques", value: securityAlerts, set: setSecurityAlerts },
+                  { label: "Rapports hebdomadaires", desc: "Recevoir un résumé hebdomadaire", value: weeklyReports, set: setWeeklyReports },
+                ].map(({ label, desc, value, set }) => (
+                  <div key={label} className="flex items-center justify-between p-4 bg-slate-800/30 rounded-lg border border-slate-700/50">
+                    <div className="space-y-1">
+                      <p className="text-slate-200 font-medium">{label}</p>
+                      <p className="text-sm text-slate-400">{desc}</p>
+                    </div>
+                    <Switch checked={value} onCheckedChange={set} />
                   </div>
-                  <Switch checked={emailNotifications} onCheckedChange={setEmailNotifications} />
-                </div>
-                <div className="flex items-center justify-between p-4 bg-slate-800/30 rounded-lg border border-slate-700/50">
-                  <div className="space-y-1">
-                    <p className="text-slate-200 font-medium">Alertes de scan</p>
-                    <p className="text-sm text-slate-400">Être notifié quand les scans sont terminés</p>
-                  </div>
-                  <Switch checked={scanAlerts} onCheckedChange={setScanAlerts} />
-                </div>
-                <div className="flex items-center justify-between p-4 bg-slate-800/30 rounded-lg border border-slate-700/50">
-                  <div className="space-y-1">
-                    <p className="text-slate-200 font-medium">Alertes de sécurité</p>
-                    <p className="text-sm text-slate-400">Notifications pour les violations critiques</p>
-                  </div>
-                  <Switch checked={securityAlerts} onCheckedChange={setSecurityAlerts} />
-                </div>
-                <div className="flex items-center justify-between p-4 bg-slate-800/30 rounded-lg border border-slate-700/50">
-                  <div className="space-y-1">
-                    <p className="text-slate-200 font-medium">Rapports hebdomadaires</p>
-                    <p className="text-sm text-slate-400">Recevoir un résumé hebdomadaire</p>
-                  </div>
-                  <Switch checked={weeklyReports} onCheckedChange={setWeeklyReports} />
-                </div>
+                ))}
                 <Button className="btn-cta">
-                  <Save className="h-4 w-4 mr-2" />Save les préférences
+                  <Save className="h-4 w-4 mr-2" />Sauvegarder les préférences
                 </Button>
               </CardContent>
             </Card>
@@ -286,7 +271,7 @@ export default function SettingsPage() {
                   <Key className="h-4 w-4 mr-2" />Générer une nouvelle clé
                 </Button>
                 <div className="bg-cyan-500/10 border border-cyan-500/50 rounded-lg p-4 mt-6">
-                  <p className="text-sm text-cyan-400">Gardez vos clés API en sécurité. Ne les partagez jamais publiquement et ne les commitez pas dans le contrôle de version.</p>
+                  <p className="text-sm text-cyan-400">Gardez vos clés API en sécurité. Ne les partagez jamais publiquement.</p>
                 </div>
               </CardContent>
             </Card>

@@ -1,6 +1,8 @@
 import type React from "react"
 import { redirect } from "next/navigation"
-import { createClient } from "@/lib/supabase/server"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
+import { apiGet } from "@/lib/api"
 import { AdminNav } from "@/components/admin-nav"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -19,32 +21,27 @@ import {
 } from "lucide-react"
 
 export default async function AdminDashboardPage() {
-  const supabase = await createClient()
+  const session = await getServerSession(authOptions)
+  if (!session?.user) redirect("/auth/login")
+  if (session.user.role !== "admin") redirect("/dashboard")
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const token = session.backendToken
 
-  if (!user) {
-    redirect("/auth/login")
-  }
+  let allUsers: any[] = []
+  let allScans: any[] = []
+  let allReports: any[] = []
+  let recentActivity: any[] = []
 
-  // Check if user is admin
-  const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).single()
+  try {
+    ;[allUsers, allScans, allReports, recentActivity] = await Promise.all([
+      apiGet("/admin/profiles", token),
+      apiGet("/admin/scans", token),
+      apiGet("/admin/reports", token),
+      apiGet("/admin/activity?limit=10", token),
+    ])
+  } catch { /* données non disponibles */ }
 
-  if (profile?.role !== "admin") {
-    redirect("/dashboard")
-  }
-
-  // Fetch system statistics
-  const { data: allUsers } = await supabase.from("profiles").select("*")
-  const { data: allScans } = await supabase.from("scans").select("*")
-  const { data: allReports } = await supabase.from("reports").select("*")
-  const { data: recentActivity } = await supabase
-    .from("activity_timeline")
-    .select("*")
-    .order("created_at", { ascending: false })
-    .limit(10)
+  const user = session.user
 
   // Calculate statistics
   const totalUsers = allUsers?.length || 0

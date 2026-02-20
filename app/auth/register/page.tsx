@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { createClient } from "@/lib/supabase/client"
+
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -60,21 +60,16 @@ export default function RegisterPage() {
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault()
-    const supabase = createClient()
     setIsLoading(true)
     setError(null)
-
     try {
-      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || (typeof window !== "undefined" ? window.location.origin : "")
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: `${siteUrl || window.location.origin}/scan`,
-          data: { full_name: fullName },
-        },
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password, full_name: fullName }),
       })
-      if (error) throw error
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Erreur lors de la création du compte")
       router.push("/auth/success")
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "Une erreur est survenue")

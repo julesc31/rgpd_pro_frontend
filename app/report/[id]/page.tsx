@@ -2,7 +2,7 @@
 
 import { useParams, useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
-import { createClient } from "@/lib/supabase/client"
+import { useSession } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft, Download, FileJson, FileDown, Package, FileText } from "lucide-react"
 import { useSubscription, getPlanDisplayName } from "@/hooks/use-subscription"
@@ -31,49 +31,29 @@ export default function ReportViewerPage() {
   const subscription = useSubscription()
   const canDownload = true // Tous les téléchargements disponibles en mode test
 
+  const { data: session } = useSession()
+
   useEffect(() => {
+    if (subscription.isLoading || !session?.backendToken) return
     const fetchReport = async () => {
       try {
-        const supabase = createClient()
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) {
-          router.push("/auth/login")
-          return
-        }
-
-        const { data: scan, error } = await supabase
-          .from("scans")
-          .select("id, target_url, report_html, storage_path, scan_data, status, report_pdf_path, scan_type")
-          .eq("id", params.id)
-          .eq("user_id", user.id)
-          .single()
-
-        if (error) {
-          console.error("[Report] Error fetching scan:", error)
-          setLoading(false)
-          return
-        }
-
-        if (scan) {
-          setScanData(scan)
-          if (scan.report_html) {
-            // Mode test - pas de restrictions
-            setReportHtml(scan.report_html)
-          }
-        }
-
-        setLoading(false)
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+        const res = await fetch(
+          `${apiUrl}/scans/${params.id}?fields=id,target_url,report_html,storage_path,scan_data,status,report_pdf_path,scan_type`,
+          { headers: { Authorization: `Bearer ${session.backendToken}` } }
+        )
+        if (!res.ok) throw new Error("Scan introuvable")
+        const scan = await res.json()
+        setScanData(scan)
+        if (scan.report_html) setReportHtml(scan.report_html)
       } catch (error) {
         console.error("[Report] Error fetching report:", error)
+      } finally {
         setLoading(false)
       }
     }
-
-    // Wait for subscription to load before fetching report
-    if (!subscription.isLoading) {
-      fetchReport()
-    }
-  }, [params.id, router, subscription.plan, subscription.isLoading])
+    fetchReport()
+  }, [params.id, router, subscription.isLoading, session?.backendToken])
 
   const getDomain = () => {
     if (!scanData?.target_url) return "rapport"
@@ -115,15 +95,10 @@ export default function ReportViewerPage() {
     setDownloadingPdf(true)
     try {
       if (scanData?.report_pdf_path) {
-        const supabase = createClient()
-        const { data: fileData, error: downloadError } = await supabase.storage
-          .from("scan-results")
-          .download(scanData.report_pdf_path)
-        if (downloadError || !fileData) {
-          alert("Erreur lors du téléchargement du PDF")
-          return
-        }
-        const url = URL.createObjectURL(fileData)
+        const res = await fetch(`/api/r2/download?key=${encodeURIComponent(scanData.report_pdf_path)}`)
+        if (!res.ok) { alert("Erreur lors du téléchargement du PDF"); return }
+        const blob = await res.blob()
+        const url = URL.createObjectURL(blob)
         const a = document.createElement("a")
         a.href = url
         a.download = `rapport-rgpd-${getDomain()}.pdf`
@@ -167,14 +142,10 @@ export default function ReportViewerPage() {
     if (!canDownload || !scanData?.storage_path) return
     setDownloadingZip(true)
     try {
-      const supabase = createClient()
-      const { data, error } = await supabase.storage
-        .from("scan-results")
-        .download(scanData.storage_path)
-
-      if (error) throw error
-
-      const url = URL.createObjectURL(data)
+      const res = await fetch(`/api/r2/download?key=${encodeURIComponent(scanData.storage_path)}`)
+      if (!res.ok) throw new Error("Téléchargement impossible")
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
       const a = document.createElement("a")
       a.href = url
       a.download = `rgpd-package-${getDomain()}.zip`
