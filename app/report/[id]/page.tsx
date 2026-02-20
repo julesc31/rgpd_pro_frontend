@@ -15,6 +15,7 @@ type ScanData = {
   storage_path?: string
   scan_data?: Record<string, unknown>
   status: string
+  scan_type?: string
 }
 
 export default function ReportViewerPage() {
@@ -42,7 +43,7 @@ export default function ReportViewerPage() {
 
         const { data: scan, error } = await supabase
           .from("scans")
-          .select("id, target_url, report_html, storage_path, scan_data, status, report_pdf_path")
+          .select("id, target_url, report_html, storage_path, scan_data, status, report_pdf_path, scan_type")
           .eq("id", params.id)
           .eq("user_id", user.id)
           .single()
@@ -215,7 +216,7 @@ export default function ReportViewerPage() {
           </Button>
 
           <div className="flex gap-2 items-center">
-            {/* Download JSON */}
+            {/* JSON — tous les types */}
             <Button
               onClick={handleDownloadJSON}
               variant="outline"
@@ -227,7 +228,7 @@ export default function ReportViewerPage() {
               <span className="hidden sm:inline">JSON</span>
             </Button>
 
-            {/* Download HTML */}
+            {/* HTML — tous les types */}
             <Button
               onClick={handleDownloadHTML}
               variant="outline"
@@ -239,47 +240,53 @@ export default function ReportViewerPage() {
               <span className="hidden sm:inline">HTML</span>
             </Button>
 
-            {/* Download PDF */}
-            <Button
-              onClick={handleDownloadPDF}
-              variant="outline"
-              disabled={(!scanData?.scan_data && !scanData?.report_pdf_path) || downloadingPdf}
-              title="Télécharger le PDF"
-              className="border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white bg-transparent disabled:opacity-50"
-            >
-              {downloadingPdf ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-slate-300 mr-2" />
-                  <span className="hidden sm:inline">PDF...</span>
-                </>
-              ) : (
-                <>
-                  <FileDown className="mr-2 h-4 w-4" />
-                  <span className="hidden sm:inline">PDF</span>
-                </>
-              )}
-            </Button>
+            {/* PDF — standard + forensic uniquement */}
+            {scanData?.scan_type !== "quick" && (
+              <Button
+                onClick={handleDownloadPDF}
+                variant="outline"
+                disabled={(!scanData?.scan_data && !scanData?.report_pdf_path) || downloadingPdf}
+                title="Télécharger le PDF"
+                className="border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white bg-transparent disabled:opacity-50"
+              >
+                {downloadingPdf ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-slate-300 mr-2" />
+                    <span className="hidden sm:inline">PDF...</span>
+                  </>
+                ) : (
+                  <>
+                    <FileDown className="mr-2 h-4 w-4" />
+                    <span className="hidden sm:inline">PDF</span>
+                  </>
+                )}
+              </Button>
+            )}
 
-            {/* Download Complete ZIP Package */}
-            <Button
-              onClick={handleDownloadZIP}
-              disabled={!scanData?.storage_path || downloadingZip}
-              title={!scanData?.storage_path ? "Package non disponible" : "Télécharger le package complet"}
-              className="bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white disabled:opacity-50"
-            >
-              {downloadingZip ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  <span className="hidden sm:inline">Téléchargement...</span>
-                </>
-              ) : (
-                <>
-                  <Package className="mr-2 h-4 w-4" />
-                  <span className="hidden sm:inline">Package complet</span>
-                  <Download className="ml-1 h-3 w-3 sm:hidden" />
-                </>
-              )}
-            </Button>
+            {/* ZIP — standard + forensic uniquement */}
+            {scanData?.scan_type !== "quick" && (
+              <Button
+                onClick={handleDownloadZIP}
+                disabled={!scanData?.storage_path || downloadingZip}
+                title={!scanData?.storage_path ? "Package non disponible" : "Télécharger le package complet"}
+                className="bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white disabled:opacity-50"
+              >
+                {downloadingZip ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    <span className="hidden sm:inline">Téléchargement...</span>
+                  </>
+                ) : (
+                  <>
+                    <Package className="mr-2 h-4 w-4" />
+                    <span className="hidden sm:inline">
+                      {scanData?.scan_type === "forensic" ? "Bundle complet" : "ZIP"}
+                    </span>
+                    <Download className="ml-1 h-3 w-3 sm:hidden" />
+                  </>
+                )}
+              </Button>
+            )}
           </div>
         </div>
       </div>
