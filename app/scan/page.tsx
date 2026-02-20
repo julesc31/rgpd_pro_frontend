@@ -879,30 +879,42 @@ export default function ScanPage() {
                   <div className="space-y-3 pt-2">
                     <p className="text-sm text-slate-300 font-medium">Télécharger les résultats :</p>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                      <Button onClick={() => handleDownloadHtml()} variant="outline"
-                        className="border-cyan-500/50 text-cyan-400 hover:bg-cyan-500/10 bg-transparent flex-col h-auto py-3">
-                        <FileCode className="h-5 w-5 mb-1" />
-                        <span className="text-xs">Rapport HTML</span>
-                        <span className="text-[10px] text-slate-500">Interactif</span>
-                      </Button>
-                      <Button onClick={() => handleDownloadForensics()} variant="outline"
-                        className="border-purple-500/50 text-purple-400 hover:bg-purple-500/10 bg-transparent flex-col h-auto py-3">
-                        <FolderArchive className="h-5 w-5 mb-1" />
-                        <span className="text-xs">Forensique</span>
-                        <span className="text-[10px] text-slate-500">Preuves ZIP</span>
-                      </Button>
+                      {/* JSON — tous les types */}
                       <Button onClick={() => handleDownloadJson()} variant="outline"
                         className="border-green-500/50 text-green-400 hover:bg-green-500/10 bg-transparent flex-col h-auto py-3">
                         <FileJson className="h-5 w-5 mb-1" />
                         <span className="text-xs">Données JSON</span>
                         <span className="text-[10px] text-slate-500">Brutes</span>
                       </Button>
-                      <Button onClick={() => handleDownloadPdf()} disabled={downloadingPdf} variant="outline"
-                        className="border-amber-500/50 text-amber-400 hover:bg-amber-500/10 bg-transparent flex-col h-auto py-3 disabled:opacity-50">
-                        {downloadingPdf ? <Loader2 className="h-5 w-5 mb-1 animate-spin" /> : <FileDown className="h-5 w-5 mb-1" />}
-                        <span className="text-xs">PDF</span>
-                        <span className="text-[10px] text-slate-500">Rapport</span>
+                      {/* HTML — tous les types */}
+                      <Button onClick={() => handleDownloadHtml()} variant="outline"
+                        className="border-cyan-500/50 text-cyan-400 hover:bg-cyan-500/10 bg-transparent flex-col h-auto py-3">
+                        <FileCode className="h-5 w-5 mb-1" />
+                        <span className="text-xs">Rapport HTML</span>
+                        <span className="text-[10px] text-slate-500">
+                          {activeScan?.scan_type === "forensic" ? "Forensique" : activeScan?.scan_type === "standard" ? "Standard" : "Flash"}
+                        </span>
                       </Button>
+                      {/* PDF — standard + forensic uniquement */}
+                      {activeScan?.scan_type !== "quick" && (
+                        <Button onClick={() => handleDownloadPdf()} disabled={downloadingPdf} variant="outline"
+                          className="border-amber-500/50 text-amber-400 hover:bg-amber-500/10 bg-transparent flex-col h-auto py-3 disabled:opacity-50">
+                          {downloadingPdf ? <Loader2 className="h-5 w-5 mb-1 animate-spin" /> : <FileDown className="h-5 w-5 mb-1" />}
+                          <span className="text-xs">PDF</span>
+                          <span className="text-[10px] text-slate-500">Rapport</span>
+                        </Button>
+                      )}
+                      {/* ZIP — standard + forensic uniquement */}
+                      {activeScan?.scan_type !== "quick" && (
+                        <Button onClick={() => handleDownloadForensics()} variant="outline"
+                          className="border-purple-500/50 text-purple-400 hover:bg-purple-500/10 bg-transparent flex-col h-auto py-3">
+                          <FolderArchive className="h-5 w-5 mb-1" />
+                          <span className="text-xs">ZIP</span>
+                          <span className="text-[10px] text-slate-500">
+                            {activeScan?.scan_type === "forensic" ? "Bundle complet" : "HTML+JSON"}
+                          </span>
+                        </Button>
+                      )}
                     </div>
                   </div>
                 )}
@@ -1176,30 +1188,39 @@ export default function ScanPage() {
                     {/* Zone téléchargements dépliable */}
                     {expandedDownloadId === scan.id && scan.status === "completed" && (
                       <div className="flex items-center gap-2 px-4 py-3 bg-slate-800/50 rounded-lg border border-green-500/30 ml-8">
-                        <Button size="sm" variant="outline"
-                          onClick={() => handleDownloadHtml(scan.id)}
-                          className="border-cyan-500/50 text-cyan-400 hover:bg-cyan-500/10 bg-transparent">
-                          <FileCode className="h-4 w-4 mr-1" />HTML
-                        </Button>
-                        <Button size="sm" variant="outline"
-                          onClick={() => handleDownloadForensics(scan.id)}
-                          className="border-purple-500/50 text-purple-400 hover:bg-purple-500/10 bg-transparent">
-                          <FolderArchive className="h-4 w-4 mr-1" />Forensique
-                        </Button>
+                        {/* JSON — tous les types */}
                         <Button size="sm" variant="outline"
                           onClick={() => handleDownloadJson(scan.id, scan.target_url)}
                           className="border-green-500/50 text-green-400 hover:bg-green-500/10 bg-transparent">
                           <FileJson className="h-4 w-4 mr-1" />JSON
                         </Button>
+                        {/* HTML — tous les types */}
                         <Button size="sm" variant="outline"
-                          disabled={downloadingPdfScanId === scan.id}
-                          onClick={() => handleDownloadPdf(scan.id, scan.target_url)}
-                          className="border-amber-500/50 text-amber-400 hover:bg-amber-500/10 bg-transparent disabled:opacity-50">
-                          {downloadingPdfScanId === scan.id
-                            ? <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                            : <FileDown className="h-4 w-4 mr-1" />}
-                          PDF
+                          onClick={() => handleDownloadHtml(scan.id)}
+                          className="border-cyan-500/50 text-cyan-400 hover:bg-cyan-500/10 bg-transparent">
+                          <FileCode className="h-4 w-4 mr-1" />HTML
                         </Button>
+                        {/* PDF — standard + forensic uniquement */}
+                        {scan.scan_type !== "quick" && (
+                          <Button size="sm" variant="outline"
+                            disabled={downloadingPdfScanId === scan.id}
+                            onClick={() => handleDownloadPdf(scan.id, scan.target_url)}
+                            className="border-amber-500/50 text-amber-400 hover:bg-amber-500/10 bg-transparent disabled:opacity-50">
+                            {downloadingPdfScanId === scan.id
+                              ? <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                              : <FileDown className="h-4 w-4 mr-1" />}
+                            PDF
+                          </Button>
+                        )}
+                        {/* ZIP — standard + forensic uniquement */}
+                        {scan.scan_type !== "quick" && (
+                          <Button size="sm" variant="outline"
+                            onClick={() => handleDownloadForensics(scan.id)}
+                            className="border-purple-500/50 text-purple-400 hover:bg-purple-500/10 bg-transparent">
+                            <FolderArchive className="h-4 w-4 mr-1" />
+                            {scan.scan_type === "forensic" ? "Bundle ZIP" : "ZIP"}
+                          </Button>
+                        )}
                       </div>
                     )}
                   </div>
