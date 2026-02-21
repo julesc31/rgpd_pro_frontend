@@ -316,32 +316,24 @@ export default function ScanPage() {
     return () => clearInterval(interval)
   }, [scans, isDeleting, showDeleteConfirm, activeScanId, session?.backendToken])
 
-  const handleStartScan = async (e: React.FormEvent) => {
+  const handleStartScan = (e: React.FormEvent) => {
     e.preventDefault()
     if (!session?.backendToken || !session.user?.id) {
       setError("Non authentifié — veuillez vous reconnecter")
       return
     }
-    setIsLoading(true)
     setError(null)
 
-    let urlToScan = ""
-    try {
-      urlToScan = targetUrl.trim()
-      if (!urlToScan.startsWith("http://") && !urlToScan.startsWith("https://")) {
-        urlToScan = "https://" + urlToScan
-      }
-      try { new URL(urlToScan) } catch { throw new Error("URL invalide") }
-
-      if (scanMode !== "quick") {
-        if (!sector) throw new Error("Veuillez sélectionner un secteur d'activité")
-        if (!revenueBracket) throw new Error("Veuillez sélectionner un chiffre d'affaires")
-        if (!employeeBracket) throw new Error("Veuillez sélectionner un nombre d'employés")
-      }
-    } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : "Erreur de validation")
-      setIsLoading(false)
-      return
+    // Validation
+    let urlToScan = targetUrl.trim()
+    if (!urlToScan.startsWith("http://") && !urlToScan.startsWith("https://")) {
+      urlToScan = "https://" + urlToScan
+    }
+    try { new URL(urlToScan) } catch { setError("URL invalide"); return }
+    if (scanMode !== "quick") {
+      if (!sector) { setError("Veuillez sélectionner un secteur d'activité"); return }
+      if (!revenueBracket) { setError("Veuillez sélectionner un chiffre d'affaires"); return }
+      if (!employeeBracket) { setError("Veuillez sélectionner un nombre d'employés"); return }
     }
 
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
@@ -350,13 +342,9 @@ export default function ScanPage() {
       Authorization: `Bearer ${session.backendToken}`,
     }
 
-    // POST /scan est synchrone : bloque pendant toute la durée du scan.
-    // On le lance en arrière-plan et on montre l'UI immédiatement.
-    // On poll GET /scans pour détecter le nouveau scan dès qu'il est en DB,
-    // puis GET /scan/{id}/status pour les logs en temps réel.
-    const knownIds = new Set(scans.map(s => s.id))
-
-    const scanPromise = fetch(`${apiUrl}/scan`, {
+    // POST /scan retourne immédiatement (status="queued") — vrai fire-and-forget.
+    // Le scan tourne en thread côté backend.
+    fetch(`${apiUrl}/scan`, {
       method: "POST",
       headers: authHeaders,
       body: JSON.stringify({
@@ -370,16 +358,21 @@ export default function ScanPage() {
         scan_mode: scanMode,
         user_id: session.user.id,
       }),
-    })
+    }).catch(() => { /* réseau : le polling détectera l'échec */ })
 
-    // Affiche l'UI de scan immédiatement (sans attendre la fin du scan)
+    // Affiche l'UI immédiatement
     setShowActiveScan(true)
     setActiveScanLogs([])
     setTargetUrl("https://")
 
-    // Poll GET /scans pour détecter le scan dès qu'il apparaît en DB,
-    // puis GET /scan/{id}/status pour les logs en direct
+    // Snapshot des IDs connus AVANT le nouveau scan
+    const knownIds = new Set(scans.map(s => s.id))
     let detectedScanId: string | null = null
+
+    // Poll toutes les 1.5s :
+    //  1. GET /scans → détecte le nouveau scan, met à jour le state
+    //  2. GET /scan/{id}/status → logs en temps réel
+    //  3. Quand completed/failed → arrête le polling (GET /scans a déjà le résultat complet)
     const detectionTimer = setInterval(async () => {
       try {
         const res = await fetch(`${apiUrl}/scans`, {
@@ -390,6 +383,7 @@ export default function ScanPage() {
         const list: Scan[] = (Array.isArray(raw) ? raw : (raw.scans || [])).map(normalizeScan)
         setScans(list)
 
+        // Détecte le nouveau scan (pas dans la liste avant le lancement)
         if (!detectedScanId) {
           const newScan = list.find(s => !knownIds.has(s.id))
           if (newScan) {
@@ -398,55 +392,33 @@ export default function ScanPage() {
           }
         }
 
-        if (detectedScanId) {
-          try {
-            const statusRes = await fetch(`${apiUrl}/scan/${detectedScanId}/status`, {
-              headers: { Authorization: `Bearer ${session.backendToken}` },
-            })
-            if (statusRes.ok) {
-              const status = await statusRes.json()
-              if (Array.isArray(status.scan_logs) && status.scan_logs.length > 0) {
-                setActiveScanLogs(status.scan_logs)
-              }
-            }
-          } catch { /* ignore */ }
+        if (!detectedScanId) return
+
+        const activeScan = list.find(s => s.id === detectedScanId)
+
+        // Scan terminé → GET /scans a déjà les données complètes (scan_data, etc.)
+        if (activeScan?.status === "completed" || activeScan?.status === "failed") {
+          clearInterval(detectionTimer)
+          if (activeScan.scan_logs && activeScan.scan_logs.length > 0) {
+            setActiveScanLogs(activeScan.scan_logs)
+          }
+          return
         }
+
+        // Scan en cours → logs via /status
+        try {
+          const statusRes = await fetch(`${apiUrl}/scan/${detectedScanId}/status`, {
+            headers: { Authorization: `Bearer ${session.backendToken}` },
+          })
+          if (statusRes.ok) {
+            const status = await statusRes.json()
+            if (Array.isArray(status.scan_logs) && status.scan_logs.length > 0) {
+              setActiveScanLogs(status.scan_logs)
+            }
+          }
+        } catch { /* ignore */ }
       } catch { /* ignore */ }
     }, 1500)
-
-    try {
-      const response = await scanPromise
-      clearInterval(detectionTimer)
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.detail || `Erreur scan: ${response.status}`)
-      }
-
-      const raw = await response.json()
-      const scan: Scan = {
-        ...normalizeScan(raw),
-        target_url: raw.target_url || raw.url || urlToScan,
-        scan_type: raw.scan_type || raw.scan_mode || scanMode,
-      }
-
-      // Met à jour le state avec les données finales du scan
-      setScans(prev => {
-        const exists = prev.find(s => s.id === scan.id)
-        return exists
-          ? prev.map(s => s.id === scan.id ? scan : s)
-          : [scan, ...prev]
-      })
-      setActiveScanId(scan.id)
-      if (scan.scan_logs && scan.scan_logs.length > 0) {
-        setActiveScanLogs(scan.scan_logs)
-      }
-    } catch (error: unknown) {
-      clearInterval(detectionTimer)
-      setError(error instanceof Error ? error.message : "Une erreur est survenue")
-    } finally {
-      setIsLoading(false)
-    }
   }
 
   const filteredScans = scans.filter(scan =>
