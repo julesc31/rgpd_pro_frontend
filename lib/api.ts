@@ -32,14 +32,21 @@ export async function apiPost<T>(path: string, token: string, body: unknown): Pr
 }
 
 /**
- * Le backend n'expose pas GET /scan/{id} ni GET /scans/{id}.
- * On fetche la liste GET /scans et on filtre par ID.
+ * Récupère un scan par ID.
+ * Essaie GET /scan/{id} en premier (retourne report_html complet).
+ * Fallback sur GET /scans (liste) si l'endpoint n'existe pas encore.
  */
 export async function apiGetScanById<T>(scanId: string, token: string): Promise<T> {
+  // Endpoint dédié — retourne report_html, scan_data, etc.
+  const specificRes = await apiFetch(`/scan/${scanId}`, token)
+  if (specificRes.ok) return specificRes.json() as Promise<T>
+
+  // Fallback : liste complète filtrée par ID
+  // Note : GET /scans doit inclure report_html pour les scans completed
   const list = await apiGet<T[]>("/scans", token)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const scan = list.find((s: any) => s.id === scanId)
-  if (!scan) throw new Error(`Scan ${scanId} introuvable dans la liste`)
+  if (!scan) throw new Error(`Scan ${scanId} introuvable`)
   return scan
 }
 

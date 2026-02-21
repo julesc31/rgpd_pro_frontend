@@ -27,6 +27,7 @@ export default function ReportViewerPage() {
   const [downloadingZip, setDownloadingZip] = useState(false)
   const [downloadingPdf, setDownloadingPdf] = useState(false)
   const [scanData, setScanData] = useState<ScanData | null>(null)
+  const [errorType, setErrorType] = useState<"not_found" | "no_html" | null>(null)
   
   // Subscription info (pas de restrictions pour le moment - mode test)
   const subscription = useSubscription()
@@ -38,12 +39,23 @@ export default function ReportViewerPage() {
     if (subscription.isLoading || !session?.backendToken) return
     const fetchReport = async () => {
       try {
-        // Pas d'endpoint GET /scan/{id} sur le backend → on passe par la liste
+        // Essaie GET /scan/{id} d'abord, fallback GET /scans (voir lib/api.ts)
         const scan = await apiGetScanById<ScanData>(params.id as string, session.backendToken)
         setScanData(scan)
-        if (scan.report_html) setReportHtml(scan.report_html)
+        console.debug("[Report] scan reçu:", {
+          id: scan.id, status: scan.status,
+          has_report_html: !!scan.report_html,
+          has_scan_data: !!scan.scan_data,
+          storage_path: scan.storage_path,
+        })
+        if (scan.report_html) {
+          setReportHtml(scan.report_html)
+        } else {
+          setErrorType("no_html")
+        }
       } catch (error) {
-        console.error("[Report] Error fetching report:", error)
+        console.error("[Report] Scan introuvable:", error)
+        setErrorType("not_found")
       } finally {
         setLoading(false)
       }
@@ -273,10 +285,29 @@ export default function ReportViewerPage() {
           <div className="flex items-center justify-center h-full">
             <div className="text-center max-w-md">
               <div className="text-6xl mb-4">📄</div>
-              <h2 className="text-2xl font-bold text-white mb-2">Aucun rapport disponible</h2>
-              <p className="text-slate-400 mb-6">
-                Le rapport pour ce scan n&apos;est pas encore disponible ou n&apos;a pas pu être chargé.
-              </p>
+              {errorType === "not_found" ? (
+                <>
+                  <h2 className="text-2xl font-bold text-white mb-2">Scan introuvable</h2>
+                  <p className="text-slate-400 mb-2">
+                    Ce scan n&apos;existe pas ou n&apos;est plus disponible.
+                  </p>
+                  <p className="text-slate-500 text-sm mb-6">
+                    ID : <code className="text-cyan-400">{params.id as string}</code>
+                  </p>
+                </>
+              ) : (
+                <>
+                  <h2 className="text-2xl font-bold text-white mb-2">Rapport HTML non disponible</h2>
+                  <p className="text-slate-400 mb-2">
+                    Le scan a été trouvé mais le rapport HTML n&apos;a pas été retourné par le backend.
+                  </p>
+                  <p className="text-slate-500 text-sm mb-6">
+                    Vérifiez que <code className="text-cyan-400">GET /scan/{'{id}'}</code> ou{" "}
+                    <code className="text-cyan-400">GET /scans</code> retourne le champ{" "}
+                    <code className="text-cyan-400">report_html</code> pour les scans completed.
+                  </p>
+                </>
+              )}
               <Button
                 onClick={() => router.push("/scan")}
                 className="bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600"
