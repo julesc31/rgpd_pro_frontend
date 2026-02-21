@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { DashboardNav } from "@/components/dashboard-nav"
@@ -228,6 +228,8 @@ export default function ScanPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const subscription = useSubscription()
+  // Vrai quand handleStartScan a un detectionTimer actif qui gère déjà le polling /status
+  const isDetectionTimerActive = useRef(false)
 
   // Pre-fill form when coming from a "Relancer le scan" redirect
   useEffect(() => {
@@ -284,8 +286,9 @@ export default function ScanPage() {
         })
         if (newlyCompleted) subscription.refresh()
         setScans(scansData)
-        // Logs en temps réel via GET /scan/{id}/status (endpoint dédié ajouté au backend)
-        if (activeScanId) {
+        // Logs en temps réel via GET /scan/{id}/status
+        // Skip si detectionTimer est actif — il gère déjà ce polling (évite les doublons)
+        if (activeScanId && !isDetectionTimerActive.current) {
           const activeScan = scansData.find(s => s.id === activeScanId)
           const isStillActive = activeScan?.status === "running" || activeScan?.status === "pending"
           if (isStillActive) {
@@ -298,7 +301,6 @@ export default function ScanPage() {
                 if (Array.isArray(status.scan_logs) && status.scan_logs.length > 0) {
                   setActiveScanLogs(status.scan_logs)
                 }
-                // Mise à jour progress/phase depuis le status si disponible
                 if (status.progress !== undefined || status.current_phase !== undefined) {
                   setScans(prev => prev.map(s =>
                     s.id === activeScanId
@@ -368,6 +370,7 @@ export default function ScanPage() {
     // Snapshot des IDs connus AVANT le nouveau scan
     const knownIds = new Set(scans.map(s => s.id))
     let detectedScanId: string | null = null
+    isDetectionTimerActive.current = true
 
     // Poll toutes les 1.5s :
     //  1. GET /scans → détecte le nouveau scan, met à jour le state
@@ -396,12 +399,21 @@ export default function ScanPage() {
 
         const activeScan = list.find(s => s.id === detectedScanId)
 
-        // Scan terminé → GET /scans a déjà les données complètes (scan_data, etc.)
+        // Scan terminé — appel final à /status pour récupérer les logs complets
         if (activeScan?.status === "completed" || activeScan?.status === "failed") {
           clearInterval(detectionTimer)
-          if (activeScan.scan_logs && activeScan.scan_logs.length > 0) {
-            setActiveScanLogs(activeScan.scan_logs)
-          }
+          isDetectionTimerActive.current = false
+          try {
+            const finalRes = await fetch(`${apiUrl}/scan/${detectedScanId}/status`, {
+              headers: { Authorization: `Bearer ${session.backendToken}` },
+            })
+            if (finalRes.ok) {
+              const finalStatus = await finalRes.json()
+              if (Array.isArray(finalStatus.scan_logs) && finalStatus.scan_logs.length > 0) {
+                setActiveScanLogs(finalStatus.scan_logs)
+              }
+            }
+          } catch { /* ignore */ }
           return
         }
 
@@ -650,6 +662,7 @@ export default function ScanPage() {
     setShowActiveScan(false)
     setActiveScanId(null)
     setActiveScanLogs([])
+    isDetectionTimerActive.current = false
   }
 
   const handleRelaunchScan = (scan: Scan) => {
