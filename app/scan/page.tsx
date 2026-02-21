@@ -318,7 +318,21 @@ export default function ScanPage() {
         const errorData = await response.json().catch(() => ({}))
         throw new Error(errorData.detail || `Erreur création scan: ${response.status}`)
       }
-      const scan = await response.json()
+      const raw = await response.json()
+      // Normalise les champs : /scan retourne `url` et `scan_mode`, le frontend attend `target_url` et `scan_type`
+      const scan: Scan = {
+        id: raw.id || raw.scan_id,
+        target_url: raw.target_url || raw.url || urlToScan,
+        scan_type: raw.scan_type || raw.scan_mode || scanMode,
+        status: raw.status || "pending",
+        progress: raw.progress ?? 0,
+        risk_level: raw.risk_level,
+        current_phase: raw.current_phase,
+        created_at: raw.created_at || new Date().toISOString(),
+        completed_at: raw.completed_at ?? null,
+        scan_logs: Array.isArray(raw.scan_logs) ? raw.scan_logs : [],
+        scan_data: raw.scan_data,
+      }
 
       setScans(prev => [scan, ...prev])
       setActiveScanId(scan.id)
@@ -333,7 +347,7 @@ export default function ScanPage() {
   }
 
   const filteredScans = scans.filter(scan =>
-    scan.target_url.toLowerCase().includes(searchQuery.toLowerCase())
+    (scan.target_url || "").toLowerCase().includes(searchQuery.toLowerCase())
   )
 
   const getRiskBadge = (riskLevel?: string, status?: string) => {
