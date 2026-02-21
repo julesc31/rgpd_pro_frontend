@@ -325,8 +325,9 @@ export default function ScanPage() {
     setIsLoading(true)
     setError(null)
 
+    let urlToScan = ""
     try {
-      let urlToScan = targetUrl.trim()
+      urlToScan = targetUrl.trim()
       if (!urlToScan.startsWith("http://") && !urlToScan.startsWith("https://")) {
         urlToScan = "https://" + urlToScan
       }
@@ -337,47 +338,111 @@ export default function ScanPage() {
         if (!revenueBracket) throw new Error("Veuillez sélectionner un chiffre d'affaires")
         if (!employeeBracket) throw new Error("Veuillez sélectionner un nombre d'employés")
       }
+    } catch (error: unknown) {
+      setError(error instanceof Error ? error.message : "Erreur de validation")
+      setIsLoading(false)
+      return
+    }
 
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
-      const authHeaders = {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${session.backendToken}`,
-      }
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+    const authHeaders = {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${session.backendToken}`,
+    }
 
-      // Créer et lancer le scan
-      const response = await fetch(`${apiUrl}/scan`, {
-        method: "POST",
-        headers: authHeaders,
-        body: JSON.stringify({
-          url: urlToScan,
-          company_info: scanMode !== "quick" ? {
-            name: new URL(urlToScan).hostname.replace("www.", ""),
-            revenue: getRevenueValue(revenueBracket),
-            employee_count: getEmployeeValue(employeeBracket),
-            sector,
-          } : null,
-          scan_mode: scanMode,
-          user_id: session.user.id,
-        }),
-      })
+    // POST /scan est synchrone : bloque pendant toute la durée du scan.
+    // On le lance en arrière-plan et on montre l'UI immédiatement.
+    // On poll GET /scans pour détecter le nouveau scan dès qu'il est en DB,
+    // puis GET /scan/{id}/status pour les logs en temps réel.
+    const knownIds = new Set(scans.map(s => s.id))
+
+    const scanPromise = fetch(`${apiUrl}/scan`, {
+      method: "POST",
+      headers: authHeaders,
+      body: JSON.stringify({
+        url: urlToScan,
+        company_info: scanMode !== "quick" ? {
+          name: new URL(urlToScan).hostname.replace("www.", ""),
+          revenue: getRevenueValue(revenueBracket),
+          employee_count: getEmployeeValue(employeeBracket),
+          sector,
+        } : null,
+        scan_mode: scanMode,
+        user_id: session.user.id,
+      }),
+    })
+
+    // Affiche l'UI de scan immédiatement (sans attendre la fin du scan)
+    setShowActiveScan(true)
+    setActiveScanLogs([])
+    setTargetUrl("https://")
+
+    // Poll GET /scans pour détecter le scan dès qu'il apparaît en DB,
+    // puis GET /scan/{id}/status pour les logs en direct
+    let detectedScanId: string | null = null
+    const detectionTimer = setInterval(async () => {
+      try {
+        const res = await fetch(`${apiUrl}/scans`, {
+          headers: { Authorization: `Bearer ${session.backendToken}` },
+        })
+        if (!res.ok) return
+        const raw = await res.json()
+        const list: Scan[] = (Array.isArray(raw) ? raw : (raw.scans || [])).map(normalizeScan)
+        setScans(list)
+
+        if (!detectedScanId) {
+          const newScan = list.find(s => !knownIds.has(s.id))
+          if (newScan) {
+            detectedScanId = newScan.id
+            setActiveScanId(newScan.id)
+          }
+        }
+
+        if (detectedScanId) {
+          try {
+            const statusRes = await fetch(`${apiUrl}/scan/${detectedScanId}/status`, {
+              headers: { Authorization: `Bearer ${session.backendToken}` },
+            })
+            if (statusRes.ok) {
+              const status = await statusRes.json()
+              if (Array.isArray(status.scan_logs) && status.scan_logs.length > 0) {
+                setActiveScanLogs(status.scan_logs)
+              }
+            }
+          } catch { /* ignore */ }
+        }
+      } catch { /* ignore */ }
+    }, 1500)
+
+    try {
+      const response = await scanPromise
+      clearInterval(detectionTimer)
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.detail || `Erreur création scan: ${response.status}`)
+        throw new Error(errorData.detail || `Erreur scan: ${response.status}`)
       }
+
       const raw = await response.json()
-      // Utilise normalizeScan + fallback sur les valeurs de la requête si champ absent
       const scan: Scan = {
         ...normalizeScan(raw),
         target_url: raw.target_url || raw.url || urlToScan,
         scan_type: raw.scan_type || raw.scan_mode || scanMode,
       }
 
-      setScans(prev => [scan, ...prev])
+      // Met à jour le state avec les données finales du scan
+      setScans(prev => {
+        const exists = prev.find(s => s.id === scan.id)
+        return exists
+          ? prev.map(s => s.id === scan.id ? scan : s)
+          : [scan, ...prev]
+      })
       setActiveScanId(scan.id)
-      setActiveScanLogs([])
-      setShowActiveScan(true)
-      setTargetUrl("https://")
+      if (scan.scan_logs && scan.scan_logs.length > 0) {
+        setActiveScanLogs(scan.scan_logs)
+      }
     } catch (error: unknown) {
+      clearInterval(detectionTimer)
       setError(error instanceof Error ? error.message : "Une erreur est survenue")
     } finally {
       setIsLoading(false)
