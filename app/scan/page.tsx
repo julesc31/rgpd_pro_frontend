@@ -230,6 +230,10 @@ export default function ScanPage() {
   const subscription = useSubscription()
   // Vrai quand handleStartScan a un detectionTimer actif qui gère déjà le polling /status
   const isDetectionTimerActive = useRef(false)
+  // Mémorise le mode soumis pour corriger scan_type si le backend ne le retourne pas
+  const pendingScanMode = useRef<ScanMode>("standard")
+  // Map id → scan_type corrigé pour toute la session
+  const correctedScanTypes = useRef<Map<string, string>>(new Map())
 
   // Pre-fill form when coming from a "Relancer le scan" redirect
   useEffect(() => {
@@ -344,6 +348,9 @@ export default function ScanPage() {
       Authorization: `Bearer ${session.backendToken}`,
     }
 
+    // Mémorise le mode pour corriger scan_type si le backend ne le retourne pas
+    pendingScanMode.current = scanMode
+
     // POST /scan retourne immédiatement (status="queued") — vrai fire-and-forget.
     // Le scan tourne en thread côté backend.
     fetch(`${apiUrl}/scan`, {
@@ -384,16 +391,24 @@ export default function ScanPage() {
         if (!res.ok) return
         const raw = await res.json()
         const list: Scan[] = (Array.isArray(raw) ? raw : (raw.scans || [])).map(normalizeScan)
-        setScans(list)
 
-        // Détecte le nouveau scan (pas dans la liste avant le lancement)
+        // Détecte le nouveau scan AVANT setScans pour corriger scan_type si besoin
         if (!detectedScanId) {
           const newScan = list.find(s => !knownIds.has(s.id))
           if (newScan) {
             detectedScanId = newScan.id
             setActiveScanId(newScan.id)
+            // Le backend ne retourne pas toujours scan_type → on force le mode soumis
+            correctedScanTypes.current.set(newScan.id, pendingScanMode.current)
           }
         }
+
+        // Applique les corrections de scan_type (session en cours)
+        const correctedList = list.map(s => {
+          const override = correctedScanTypes.current.get(s.id)
+          return override ? { ...s, scan_type: override } : s
+        })
+        setScans(correctedList)
 
         if (!detectedScanId) return
 
@@ -967,7 +982,7 @@ export default function ScanPage() {
                 {isActiveScanCompleted && (
                   <div className="space-y-3 pt-2">
                     <p className="text-sm text-slate-300 font-medium">Télécharger les résultats :</p>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className={`grid gap-3 ${activeScan?.scan_type === "quick" ? "grid-cols-2" : "grid-cols-2 md:grid-cols-4"}`}>
                       {/* JSON — tous les types */}
                       <Button onClick={() => handleDownloadJson()} variant="outline"
                         className="border-green-500/50 text-green-400 hover:bg-green-500/10 bg-transparent flex-col h-auto py-3">
@@ -998,10 +1013,8 @@ export default function ScanPage() {
                         <Button onClick={() => handleDownloadForensics()} variant="outline"
                           className="border-purple-500/50 text-purple-400 hover:bg-purple-500/10 bg-transparent flex-col h-auto py-3">
                           <FolderArchive className="h-5 w-5 mb-1" />
-                          <span className="text-xs">ZIP</span>
-                          <span className="text-[10px] text-slate-500">
-                            {activeScan?.scan_type === "forensic" ? "Bundle complet" : "HTML+JSON"}
-                          </span>
+                          <span className="text-xs">{activeScan?.scan_type === "forensic" ? "Bundle ZIP" : "ZIP"}</span>
+                          <span className="text-[10px] text-slate-500">Archive</span>
                         </Button>
                       )}
                     </div>
@@ -1287,7 +1300,7 @@ export default function ScanPage() {
                         <Button size="sm" variant="outline"
                           onClick={() => handleDownloadHtml(scan.id)}
                           className="border-cyan-500/50 text-cyan-400 hover:bg-cyan-500/10 bg-transparent">
-                          <FileCode className="h-4 w-4 mr-1" />HTML
+                          <FileCode className="h-4 w-4 mr-1" />{scan.scan_type === "forensic" ? "Forensique" : scan.scan_type === "standard" ? "Standard" : "Flash"}
                         </Button>
                         {/* PDF — standard + forensic uniquement */}
                         {scan.scan_type !== "quick" && (
