@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react"
 import { useRouter, useParams } from "next/navigation"
 import { useSession } from "next-auth/react"
-import { apiGetScanById, apiPatch } from "@/lib/api"
+import { apiGetScanById, apiPatch, apiFetch } from "@/lib/api"
 import { DashboardNav } from "@/components/dashboard-nav"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -75,9 +75,16 @@ export default function ScanProgressPage() {
       consecutiveErrors.current = 0
       setIsReconnecting(false)
       setScan(data)
-      if (data.scan_logs && Array.isArray(data.scan_logs)) {
-        setLogs(data.scan_logs)
-      }
+      // Logs temps réel via GET /scan/{id}/status (endpoint dédié)
+      try {
+        const statusRes = await apiFetch(`/scan/${scanId}/status`, session.backendToken)
+        if (statusRes.ok) {
+          const status = await statusRes.json()
+          if (Array.isArray(status.scan_logs) && status.scan_logs.length > 0) {
+            setLogs(status.scan_logs)
+          }
+        }
+      } catch { /* ignore */ }
       return data
     } catch (e) {
       consecutiveErrors.current += 1
