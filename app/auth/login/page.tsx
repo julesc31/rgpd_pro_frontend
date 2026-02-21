@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { ArrowLeft, CheckCircle2, Shield, Target, TrendingUp, Lock } from "lucide-react"
 
@@ -38,7 +37,6 @@ export default function LoginPage() {
   const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
-  const router = useRouter()
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -47,7 +45,7 @@ export default function LoginPage() {
     try {
       const res = await signIn("credentials", { email, password, redirect: false })
       if (!res?.ok) throw new Error("Email ou mot de passe incorrect")
-      router.push("/scan")
+      window.location.href = "/scan"
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "Une erreur est survenue")
     } finally {
