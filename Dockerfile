@@ -16,9 +16,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # Seule variable publique nécessaire au build (embarquée côté client)
 ARG NEXT_PUBLIC_API_URL=http://localhost:8000
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
-# Passer --build-arg CACHEBUST=$(date +%s) pour forcer un rebuild sans cache
-ARG CACHEBUST=1
-RUN echo "Cache bust: $CACHEBUST" && npm run build
+RUN npm run build
 
 # Runner
 FROM base AS runner
