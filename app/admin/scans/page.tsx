@@ -17,19 +17,14 @@ export default async function AdminScansPage() {
   const user = session.user
   const token = session.backendToken
 
-  // Fetch all scans with user information
-  const { data: allScans } = await supabase
-    .from("scans")
-    .select(
-      `
-      *,
-      profiles (
-        full_name,
-        email
-      )
-    `,
-    )
-    .order("created_at", { ascending: false })
+  // Fetch all scans via backend admin endpoint
+  let allScans: any[] = []
+  try {
+    const result = await apiGet<any[]>("/admin/scans", token)
+    allScans = Array.isArray(result) ? result : []
+  } catch {
+    allScans = []
+  }
 
   const totalScans = allScans?.length || 0
   const runningScans = allScans?.filter((s) => s.status === "running").length || 0
@@ -174,7 +169,7 @@ function ScanRow({ scan }: { scan: any }) {
           {getStatusBadge(scan.status)}
         </div>
         <div className="flex items-center space-x-4 text-xs text-slate-500">
-          <span>User: {scan.profiles?.email || "Unknown"}</span>
+          <span>User: {scan.user_email || scan.profiles?.email || "Unknown"}</span>
           <span>•</span>
           <span className="capitalize">{scan.scan_type} scan</span>
           <span>•</span>
