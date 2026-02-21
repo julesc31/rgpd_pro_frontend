@@ -46,7 +46,7 @@ export default function LoginPage() {
     setError(null)
     try {
       const res = await signIn("credentials", { email, password, redirect: false })
-      if (res?.error) throw new Error("Email ou mot de passe incorrect")
+      if (!res?.ok) throw new Error("Email ou mot de passe incorrect")
       router.push("/scan")
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "Une erreur est survenue")

@@ -1,7 +1,7 @@
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Mail, ArrowLeft } from "lucide-react"
+import { CheckCircle2, ArrowLeft } from "lucide-react"
 
 export default function SuccessPage() {
   return (
@@ -17,19 +17,18 @@ export default function SuccessPage() {
         <div className="w-full max-w-sm">
           <Card className="bg-slate-900/50 border-slate-800 text-center">
             <CardHeader>
-              <div className="mx-auto p-3 bg-cyan-500/10 rounded-full border border-cyan-500/30 w-fit mb-4">
-                <Mail className="h-8 w-8 text-cyan-400" />
+              <div className="mx-auto p-3 bg-green-500/10 rounded-full border border-green-500/30 w-fit mb-4">
+                <CheckCircle2 className="h-8 w-8 text-green-400" />
               </div>
-              <CardTitle className="text-xl text-white">Vérifiez votre email</CardTitle>
+              <CardTitle className="text-xl text-white">Compte créé avec succès</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-slate-400 text-sm mb-6">
-                Nous vous avons envoyé un lien de confirmation. 
-                Cliquez dessus pour activer votre compte.
+                Votre compte est actif. Vous pouvez vous connecter dès maintenant.
               </p>
               <Link href="/auth/login">
                 <Button className="btn-cta w-full">
-                  Aller à la connexion
+                  Se connecter
                 </Button>
               </Link>
             </CardContent>

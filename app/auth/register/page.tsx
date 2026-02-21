@@ -187,7 +187,7 @@ export default function RegisterPage() {
           <div className="mb-8">
             <div className="inline-flex items-center gap-2 bg-green-500/10 border border-green-500/30 rounded-full px-3 py-1.5 mb-6">
               <CheckCircle2 className="h-3.5 w-3.5 text-green-400" />
-              <span className="text-xs text-green-300 font-medium">Accès immédiat après confirmation email</span>
+              <span className="text-xs text-green-300 font-medium">Accès immédiat après inscription</span>
             </div>
             <h2 className="text-2xl font-bold text-white mb-3">
               3 modes de scan inclus
