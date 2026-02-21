@@ -284,11 +284,30 @@ export default function ScanPage() {
         })
         if (newlyCompleted) subscription.refresh()
         setScans(scansData)
-        // Mise à jour des logs depuis la liste (si le backend les inclut dans /scans)
+        // Logs en temps réel via GET /scan/{id}/status (endpoint dédié ajouté au backend)
         if (activeScanId) {
           const activeScan = scansData.find(s => s.id === activeScanId)
-          if (activeScan?.scan_logs && activeScan.scan_logs.length > 0) {
-            setActiveScanLogs(activeScan.scan_logs)
+          const isStillActive = activeScan?.status === "running" || activeScan?.status === "pending"
+          if (isStillActive) {
+            try {
+              const statusRes = await fetch(`${apiUrl}/scan/${activeScanId}/status`, {
+                headers: { Authorization: `Bearer ${session.backendToken}` },
+              })
+              if (statusRes.ok) {
+                const status = await statusRes.json()
+                if (Array.isArray(status.scan_logs) && status.scan_logs.length > 0) {
+                  setActiveScanLogs(status.scan_logs)
+                }
+                // Mise à jour progress/phase depuis le status si disponible
+                if (status.progress !== undefined || status.current_phase !== undefined) {
+                  setScans(prev => prev.map(s =>
+                    s.id === activeScanId
+                      ? { ...s, progress: status.progress ?? s.progress, current_phase: status.current_phase ?? s.current_phase }
+                      : s
+                  ))
+                }
+              }
+            } catch { /* ignore */ }
           }
         }
       } catch { /* ignore */ }
