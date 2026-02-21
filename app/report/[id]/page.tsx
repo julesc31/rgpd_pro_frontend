@@ -39,7 +39,7 @@ export default function ReportViewerPage() {
       try {
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
         const res = await fetch(
-          `${apiUrl}/scans/${params.id}?fields=id,target_url,report_html,storage_path,scan_data,status,report_pdf_path,scan_type`,
+          `${apiUrl}/scan/${params.id}?fields=id,target_url,report_html,storage_path,scan_data,status,report_pdf_path,scan_type`,
           { headers: { Authorization: `Bearer ${session.backendToken}` } }
         )
         if (!res.ok) throw new Error("Scan introuvable")

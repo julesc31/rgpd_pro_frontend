@@ -71,7 +71,7 @@ export default function ScanProgressPage() {
   const fetchScan = useCallback(async (): Promise<Scan | null> => {
     if (!session?.backendToken) return null
     try {
-      const data = await apiGet<Scan>(`/scans/${scanId}`, session.backendToken)
+      const data = await apiGet<Scan>(`/scan/${scanId}`, session.backendToken)
       consecutiveErrors.current = 0
       setIsReconnecting(false)
       setScan(data)
@@ -131,7 +131,7 @@ export default function ScanProgressPage() {
     if (!scan || !session?.backendToken) return
     setIsAnnulerling(true)
     try {
-      await apiPatch(`/scans/${scanId}`, session.backendToken, {
+      await apiPatch(`/scan/${scanId}`, session.backendToken, {
         status: "failed",
         current_phase: "Annulé par l'utilisateur",
         completed_at: new Date().toISOString(),

@@ -278,10 +278,22 @@ export default function ScanPage() {
         })
         if (newlyCompleted) subscription.refresh()
         setScans(scansData)
+        // La liste /scans ne contient pas scan_logs → appel séparé sur /scan/{id}
         if (activeScanId) {
           const activeScan = scansData.find(s => s.id === activeScanId)
-          if (activeScan?.scan_logs && Array.isArray(activeScan.scan_logs)) {
-            setActiveScanLogs(activeScan.scan_logs)
+          const isStillRunning = activeScan?.status === "running" || activeScan?.status === "pending"
+          if (isStillRunning) {
+            try {
+              const detailRes = await fetch(`${apiUrl}/scan/${activeScanId}`, {
+                headers: { Authorization: `Bearer ${session.backendToken}` },
+              })
+              if (detailRes.ok) {
+                const detail = normalizeScan(await detailRes.json())
+                if (Array.isArray(detail.scan_logs) && detail.scan_logs.length > 0) {
+                  setActiveScanLogs(detail.scan_logs)
+                }
+              }
+            } catch { /* ignore */ }
           }
         }
       } catch { /* ignore */ }
@@ -444,7 +456,7 @@ export default function ScanPage() {
     setCancellingId(scanId)
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
-      await fetch(`${apiUrl}/scans/${scanId}`, {
+      await fetch(`${apiUrl}/scan/${scanId}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -495,7 +507,7 @@ export default function ScanPage() {
     if (!id || !session?.backendToken) return
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
-      const res = await fetch(`${apiUrl}/scans/${id}?fields=report_html,target_url`, {
+      const res = await fetch(`${apiUrl}/scan/${id}?fields=report_html,target_url`, {
         headers: { Authorization: `Bearer ${session.backendToken}` },
       })
       if (!res.ok) { setError("Rapport HTML non disponible"); return }
@@ -513,7 +525,7 @@ export default function ScanPage() {
     if (!id || !session?.backendToken) return
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
-      const res = await fetch(`${apiUrl}/scans/${id}?fields=storage_path`, {
+      const res = await fetch(`${apiUrl}/scan/${id}?fields=storage_path`, {
         headers: { Authorization: `Bearer ${session.backendToken}` },
       })
       if (!res.ok) { setError("Archive forensique non disponible"); return }
@@ -530,7 +542,7 @@ export default function ScanPage() {
     if (!id || !session?.backendToken) return
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
-      const res = await fetch(`${apiUrl}/scans/${id}?fields=scan_data,target_url`, {
+      const res = await fetch(`${apiUrl}/scan/${id}?fields=scan_data,target_url`, {
         headers: { Authorization: `Bearer ${session.backendToken}` },
       })
       if (!res.ok) { setError("Données JSON non disponibles"); return }
@@ -550,7 +562,7 @@ export default function ScanPage() {
     else setDownloadingPdf(true)
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
-      const res = await fetch(`${apiUrl}/scans/${id}?fields=scan_data,target_url,report_pdf_path`, {
+      const res = await fetch(`${apiUrl}/scan/${id}?fields=scan_data,target_url,report_pdf_path`, {
         headers: { Authorization: `Bearer ${session.backendToken}` },
       })
       if (!res.ok) { setError("Données du rapport non disponibles pour le PDF"); return }
