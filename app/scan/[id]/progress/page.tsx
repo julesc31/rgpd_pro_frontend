@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react"
 import { useRouter, useParams } from "next/navigation"
 import { useSession } from "next-auth/react"
-import { apiGet, apiPatch } from "@/lib/api"
+import { apiGetScanById, apiPatch } from "@/lib/api"
 import { DashboardNav } from "@/components/dashboard-nav"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -71,7 +71,7 @@ export default function ScanProgressPage() {
   const fetchScan = useCallback(async (): Promise<Scan | null> => {
     if (!session?.backendToken) return null
     try {
-      const data = await apiGet<Scan>(`/scan/${scanId}`, session.backendToken)
+      const data = await apiGetScanById<Scan>(scanId, session.backendToken)
       consecutiveErrors.current = 0
       setIsReconnecting(false)
       setScan(data)

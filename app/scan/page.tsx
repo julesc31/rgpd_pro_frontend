@@ -170,6 +170,9 @@ type Scan = {
   completed_at: string | null
   scan_logs?: LogEntry[]
   scan_data?: { summary?: { total_violations?: number; risk_level?: string } }
+  report_html?: string
+  storage_path?: string
+  report_pdf_path?: string
 }
 
 // Normalise un objet brut de l'API en Scan typé
@@ -188,6 +191,9 @@ function normalizeScan(raw: any): Scan {
     completed_at: raw.completed_at ?? null,
     scan_logs: Array.isArray(raw.scan_logs) ? raw.scan_logs : [],
     scan_data: raw.scan_data,
+    report_html: raw.report_html,
+    storage_path: raw.storage_path,
+    report_pdf_path: raw.report_pdf_path,
   }
 }
 
@@ -278,22 +284,11 @@ export default function ScanPage() {
         })
         if (newlyCompleted) subscription.refresh()
         setScans(scansData)
-        // La liste /scans ne contient pas scan_logs → appel séparé sur /scan/{id}
+        // Mise à jour des logs depuis la liste (si le backend les inclut dans /scans)
         if (activeScanId) {
           const activeScan = scansData.find(s => s.id === activeScanId)
-          const isStillRunning = activeScan?.status === "running" || activeScan?.status === "pending"
-          if (isStillRunning) {
-            try {
-              const detailRes = await fetch(`${apiUrl}/scan/${activeScanId}`, {
-                headers: { Authorization: `Bearer ${session.backendToken}` },
-              })
-              if (detailRes.ok) {
-                const detail = normalizeScan(await detailRes.json())
-                if (Array.isArray(detail.scan_logs) && detail.scan_logs.length > 0) {
-                  setActiveScanLogs(detail.scan_logs)
-                }
-              }
-            } catch { /* ignore */ }
+          if (activeScan?.scan_logs && activeScan.scan_logs.length > 0) {
+            setActiveScanLogs(activeScan.scan_logs)
           }
         }
       } catch { /* ignore */ }
@@ -491,6 +486,27 @@ export default function ScanPage() {
 
   // ── Download helpers ──────────────────────────────────────────────────────
 
+  /**
+   * Le backend n'a pas GET /scan/{id}. On fetche GET /scans et on filtre par ID.
+   * On regarde d'abord dans le state local (déjà chargé).
+   */
+  const fetchScanById = async (id: string): Promise<Scan | null> => {
+    const local = scans.find(s => s.id === id)
+    if (!session?.backendToken) return local || null
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+      const res = await fetch(`${apiUrl}/scans`, {
+        headers: { Authorization: `Bearer ${session.backendToken}` },
+      })
+      if (!res.ok) return local || null
+      const raw = await res.json()
+      const list: Scan[] = (Array.isArray(raw) ? raw : (raw.scans || [])).map(normalizeScan)
+      return list.find(s => s.id === id) || local || null
+    } catch {
+      return local || null
+    }
+  }
+
   const triggerDownload = (blob: Blob, filename: string) => {
     const url = window.URL.createObjectURL(blob)
     const a = document.createElement("a")
@@ -504,14 +520,9 @@ export default function ScanPage() {
 
   const handleDownloadHtml = async (scanId?: string) => {
     const id = scanId || activeScanId
-    if (!id || !session?.backendToken) return
+    if (!id) return
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
-      const res = await fetch(`${apiUrl}/scan/${id}?fields=report_html,target_url`, {
-        headers: { Authorization: `Bearer ${session.backendToken}` },
-      })
-      if (!res.ok) { setError("Rapport HTML non disponible"); return }
-      const data = await res.json()
+      const data = await fetchScanById(id)
       if (!data?.report_html) { setError("Rapport HTML non disponible"); return }
       triggerDownload(
         new Blob([data.report_html], { type: "application/octet-stream" }),
@@ -522,14 +533,9 @@ export default function ScanPage() {
 
   const handleDownloadForensics = async (scanId?: string) => {
     const id = scanId || activeScanId
-    if (!id || !session?.backendToken) return
+    if (!id) return
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
-      const res = await fetch(`${apiUrl}/scan/${id}?fields=storage_path`, {
-        headers: { Authorization: `Bearer ${session.backendToken}` },
-      })
-      if (!res.ok) { setError("Archive forensique non disponible"); return }
-      const data = await res.json()
+      const data = await fetchScanById(id)
       if (!data?.storage_path) { setError("Archive forensique non disponible"); return }
       const dlRes = await fetch(`/api/r2/download?key=${encodeURIComponent(data.storage_path)}`)
       if (!dlRes.ok) { setError("Erreur lors du téléchargement de l'archive"); return }
@@ -539,14 +545,9 @@ export default function ScanPage() {
 
   const handleDownloadJson = async (scanId?: string, url?: string) => {
     const id = scanId || activeScanId
-    if (!id || !session?.backendToken) return
+    if (!id) return
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
-      const res = await fetch(`${apiUrl}/scan/${id}?fields=scan_data,target_url`, {
-        headers: { Authorization: `Bearer ${session.backendToken}` },
-      })
-      if (!res.ok) { setError("Données JSON non disponibles"); return }
-      const data = await res.json()
+      const data = await fetchScanById(id)
       if (!data?.scan_data) { setError("Données JSON non disponibles"); return }
       triggerDownload(
         new Blob([JSON.stringify(data.scan_data, null, 2)], { type: "application/octet-stream" }),
@@ -557,16 +558,12 @@ export default function ScanPage() {
 
   const handleDownloadPdf = async (scanId?: string, targetUrlOverride?: string) => {
     const id = scanId || activeScanId
-    if (!id || !session?.backendToken) return
+    if (!id) return
     if (scanId) setDownloadingPdfScanId(scanId)
     else setDownloadingPdf(true)
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
-      const res = await fetch(`${apiUrl}/scan/${id}?fields=scan_data,target_url,report_pdf_path`, {
-        headers: { Authorization: `Bearer ${session.backendToken}` },
-      })
-      if (!res.ok) { setError("Données du rapport non disponibles pour le PDF"); return }
-      const data = await res.json()
+      const data = await fetchScanById(id)
+      if (!data) { setError("Données du rapport non disponibles pour le PDF"); return }
       const domain = extractDomain(targetUrlOverride || data?.target_url || "rapport")
 
       if (data?.report_pdf_path) {

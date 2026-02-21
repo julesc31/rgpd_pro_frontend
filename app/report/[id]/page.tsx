@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft, Download, FileJson, FileDown, Package, FileText } from "lucide-react"
 import { useSubscription, getPlanDisplayName } from "@/hooks/use-subscription"
+import { apiGetScanById } from "@/lib/api"
 import Link from "next/link"
 
 type ScanData = {
@@ -37,13 +38,8 @@ export default function ReportViewerPage() {
     if (subscription.isLoading || !session?.backendToken) return
     const fetchReport = async () => {
       try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
-        const res = await fetch(
-          `${apiUrl}/scan/${params.id}?fields=id,target_url,report_html,storage_path,scan_data,status,report_pdf_path,scan_type`,
-          { headers: { Authorization: `Bearer ${session.backendToken}` } }
-        )
-        if (!res.ok) throw new Error("Scan introuvable")
-        const scan = await res.json()
+        // Pas d'endpoint GET /scan/{id} sur le backend → on passe par la liste
+        const scan = await apiGetScanById<ScanData>(params.id as string, session.backendToken)
         setScanData(scan)
         if (scan.report_html) setReportHtml(scan.report_html)
       } catch (error) {

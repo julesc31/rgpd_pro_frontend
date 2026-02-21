@@ -31,6 +31,18 @@ export async function apiPost<T>(path: string, token: string, body: unknown): Pr
   return res.json() as Promise<T>
 }
 
+/**
+ * Le backend n'expose pas GET /scan/{id} ni GET /scans/{id}.
+ * On fetche la liste GET /scans et on filtre par ID.
+ */
+export async function apiGetScanById<T>(scanId: string, token: string): Promise<T> {
+  const list = await apiGet<T[]>("/scans", token)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const scan = list.find((s: any) => s.id === scanId)
+  if (!scan) throw new Error(`Scan ${scanId} introuvable dans la liste`)
+  return scan
+}
+
 export async function apiPatch<T>(path: string, token: string, body: unknown): Promise<T> {
   const res = await apiFetch(path, token, { method: "PATCH", body: JSON.stringify(body) })
   if (!res.ok) throw new Error(`PATCH ${path} → ${res.status}`)
