@@ -1,9 +1,9 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { useRouter, useParams } from "next/navigation"
 import { useSession } from "next-auth/react"
-import { apiFetch } from "@/lib/api"
+import { apiGet, apiPatch } from "@/lib/api"
 import { DashboardNav } from "@/components/dashboard-nav"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -14,7 +14,6 @@ import {
   Scale,
   CheckCircle2,
   XCircle,
-  Download,
   Eye,
   ArrowLeft,
   Loader2,
@@ -22,6 +21,8 @@ import {
   StopCircle,
   Terminal,
   RotateCcw,
+  Wifi,
+  WifiOff,
 } from "lucide-react"
 
 type ScanStatus = "pending" | "running" | "completed" | "failed"
@@ -46,14 +47,6 @@ type Scan = {
   scan_data?: { summary?: { total_violations?: number; risk_level?: string } }
 }
 
-type ApiScanStatus = {
-  scan_id: string
-  status: string
-  progress: number
-  current_phase?: string
-  error?: string
-}
-
 export default function ScanProgressPage() {
   const params = useParams()
   const router = useRouter()
@@ -61,100 +54,63 @@ export default function ScanProgressPage() {
 
   const [userEmail, setUserEmail] = useState("")
   const [scan, setScan] = useState<Scan | null>(null)
-  const [apiStatus, setApiStatus] = useState<ApiScanStatus | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [logs, setLogs] = useState<LogEntry[]>([])
   const [showTerminal, setShowTerminal] = useState(true)
+  const [isReconnecting, setIsReconnecting] = useState(false)
+  const [isAnnulerling, setIsAnnulerling] = useState(false)
 
   const { data: session } = useSession()
+  const consecutiveErrors = useRef(0)
 
   useEffect(() => {
     if (session?.user?.email) setUserEmail(session.user.email)
   }, [session])
 
-  // Fetch scan from backend
-  const fetchScan = useCallback(async () => {
-    const supabase = createClient()
-    const { data, error: dbError } = await supabase
-      .from("scans")
-      .select("*")
-      .eq("id", scanId)
-      .single()
-
-    if (dbError || !data) {
-      setError("Scan introuvable")
-      setIsLoading(false)
+  const fetchScan = useCallback(async (): Promise<Scan | null> => {
+    if (!session?.backendToken) return null
+    try {
+      const data = await apiGet<Scan>(`/scans/${scanId}`, session.backendToken)
+      consecutiveErrors.current = 0
+      setIsReconnecting(false)
+      setScan(data)
+      if (data.scan_logs && Array.isArray(data.scan_logs)) {
+        setLogs(data.scan_logs)
+      }
+      return data
+    } catch (e) {
+      consecutiveErrors.current += 1
+      // After 3 consecutive errors assume backend is restarting (SIGTERM window ~5s)
+      if (consecutiveErrors.current >= 3) {
+        setIsReconnecting(true)
+      }
       return null
     }
+  }, [scanId, session?.backendToken])
 
-    setScan(data)
-    setIsLoading(false)
-
-    // Update logs if available
-    if (data.scan_logs && Array.isArray(data.scan_logs)) {
-      setLogs(data.scan_logs)
-    }
-
-    return data
-  }, [scanId])
-
-  // Poll backend API for real status
-  const pollBackendStatus = useCallback(async () => {
-    try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
-      // Note: Le backend utilise un scan_id différent, on poll tous les scans running
-      const response = await fetch(`${apiUrl}/scans?status=running`)
-
-      if (response.ok) {
-        const data = await response.json()
-        // Chercher un scan qui match notre URL
-        if (scan && data.scans) {
-          const matchingScan = data.scans.find((s: any) =>
-            s.url === scan.target_url || s.domain === new URL(scan.target_url).hostname
-          )
-          if (matchingScan) {
-            setApiStatus(matchingScan)
-            return matchingScan
-          }
-        }
-      }
-    } catch (e) {
-      // API not available, continue with Supabase data only
-      console.log("Backend API not available, using Supabase data")
-    }
-    return null
-  }, [scan])
-
-  // Initial fetch
+  // Initial fetch — wait for session then load
   useEffect(() => {
-    fetchScan()
-  }, [fetchScan])
+    if (!session?.backendToken) return
+    fetchScan().then((data) => {
+      if (!data) setError("Scan introuvable")
+      setIsLoading(false)
+    })
+  }, [fetchScan, session?.backendToken])
 
-  // Poll for updates
+  // Poll for updates while scan is active
   useEffect(() => {
     if (!scan) return
-
-    // Si le scan est terminé ou échoué, pas besoin de poll
-    if (scan.status === "completed" || scan.status === "failed") {
-      return
-    }
+    if (scan.status === "completed" || scan.status === "failed") return
 
     const interval = setInterval(async () => {
-      // Refresh Supabase data
-      const updatedScan = await fetchScan()
-
-      // Also try to get backend status
-      await pollBackendStatus()
-
-      // Si le scan est failed dans Supabase, arrêter
-      if (updatedScan?.status === "failed") {
-        setError("Le scan a échoué. Veuillez réessayer.")
+      const updated = await fetchScan()
+      if (updated?.status === "failed") {
         clearInterval(interval)
       }
     }, 2000)
 
-    // Timeout après 15 minutes (sites complexes + PDF)
+    // Safety timeout 15 min
     const timeout = setTimeout(() => {
       clearInterval(interval)
       if (scan.status !== "completed") {
@@ -166,45 +122,36 @@ export default function ScanProgressPage() {
       clearInterval(interval)
       clearTimeout(timeout)
     }
-  }, [scan, fetchScan, pollBackendStatus])
+  }, [scan?.status, fetchScan])
 
-  const handleViewReport = () => {
-    router.push(`/report/${scanId}`)
-  }
-
-  const handleBackToScan = () => {
-    router.push("/scan")
-  }
-
-  const [isAnnulerling, setIsAnnulerling] = useState(false)
+  const handleViewReport = () => router.push(`/report/${scanId}`)
+  const handleBackToScan = () => router.push("/scan")
 
   const handleAnnulerScan = async () => {
     if (!scan || !session?.backendToken) return
     setIsAnnulerling(true)
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
-      await fetch(`${apiUrl}/scans/${scanId}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.backendToken}`,
-        },
-        body: JSON.stringify({
-          status: "failed",
-          current_phase: "Annulé par l'utilisateur",
-          completed_at: new Date().toISOString(),
-        }),
+      await apiPatch(`/scans/${scanId}`, session.backendToken, {
+        status: "failed",
+        current_phase: "Annulé par l'utilisateur",
+        completed_at: new Date().toISOString(),
       })
       router.push("/scan")
-    } catch (error) {
-      console.error("Failed to cancel scan:", error)
+    } catch {
       setIsAnnulerling(false)
+    }
+  }
+
+  const extractDomain = (url: string) => {
+    try {
+      return new URL(url).hostname
+    } catch {
+      return url
     }
   }
 
   const getStatusBadge = () => {
     if (!scan) return null
-
     switch (scan.status) {
       case "completed":
         return (
@@ -236,14 +183,6 @@ export default function ScanProgressPage() {
     }
   }
 
-  const extractDomain = (url: string) => {
-    try {
-      return new URL(url).hostname
-    } catch {
-      return url
-    }
-  }
-
   // Loading state
   if (isLoading) {
     return (
@@ -256,7 +195,7 @@ export default function ScanProgressPage() {
     )
   }
 
-  // Error state
+  // Error state (scan not found or timed out)
   if (error || !scan) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-black to-slate-900 text-slate-100">
@@ -272,10 +211,7 @@ export default function ScanProgressPage() {
                 <p className="text-slate-400 mb-6">
                   Une erreur s'est produite lors du scan. Vous pouvez réessayer.
                 </p>
-                <Button
-                  onClick={handleBackToScan}
-                  className="btn-cta"
-                >
+                <Button onClick={handleBackToScan} className="btn-cta">
                   <ArrowLeft className="mr-2 h-4 w-4" />
                   Retour au scanner
                 </Button>
@@ -300,12 +236,8 @@ export default function ScanProgressPage() {
                 {isServerRestart ? (
                   <>
                     <AlertTriangle className="h-16 w-16 text-amber-400 mx-auto mb-4" />
-                    <h2 className="text-xl font-bold text-slate-100 mb-2">
-                      Scan interrompu
-                    </h2>
-                    <p className="text-slate-400 mb-2">
-                      {extractDomain(scan.target_url)}
-                    </p>
+                    <h2 className="text-xl font-bold text-slate-100 mb-2">Scan interrompu</h2>
+                    <p className="text-slate-400 mb-2">{extractDomain(scan.target_url)}</p>
                     <p className="text-sm text-slate-500 mb-6">
                       Le serveur a redémarré pendant l'analyse (déploiement rolling). Relancez le scan pour obtenir vos résultats.
                     </p>
@@ -320,21 +252,14 @@ export default function ScanProgressPage() {
                 ) : (
                   <>
                     <XCircle className="h-16 w-16 text-red-400 mx-auto mb-4" />
-                    <h2 className="text-xl font-bold text-slate-100 mb-2">
-                      Le scan a échoué
-                    </h2>
-                    <p className="text-slate-400 mb-2">
-                      {extractDomain(scan.target_url)}
-                    </p>
+                    <h2 className="text-xl font-bold text-slate-100 mb-2">Le scan a échoué</h2>
+                    <p className="text-slate-400 mb-2">{extractDomain(scan.target_url)}</p>
                     <p className="text-sm text-slate-500 mb-6">
                       {scan.current_phase && scan.current_phase !== "Échec"
                         ? scan.current_phase
                         : "Le site n'a pas pu être analysé. Cela peut être dû à un blocage WAF, une protection anti-bot, ou un problème de connexion."}
                     </p>
-                    <Button
-                      onClick={handleBackToScan}
-                      className="btn-cta"
-                    >
+                    <Button onClick={handleBackToScan} className="btn-cta">
                       <ArrowLeft className="mr-2 h-4 w-4" />
                       Réessayer
                     </Button>
@@ -367,9 +292,7 @@ export default function ScanProgressPage() {
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="text-center">
-                  <p className="text-lg text-slate-300 mb-2">
-                    {extractDomain(scan.target_url)}
-                  </p>
+                  <p className="text-lg text-slate-300 mb-2">{extractDomain(scan.target_url)}</p>
                   {scan.risk_level && (
                     <Badge className={`text-lg px-4 py-1 ${
                       scan.risk_level === "CRITICAL" ? "bg-red-500/20 text-red-400 border-red-500/50" :
@@ -381,12 +304,8 @@ export default function ScanProgressPage() {
                     </Badge>
                   )}
                 </div>
-
                 <div className="grid grid-cols-2 gap-4">
-                  <Button
-                    onClick={handleViewReport}
-                    className="btn-cta h-12"
-                  >
+                  <Button onClick={handleViewReport} className="btn-cta h-12">
                     <Eye className="mr-2 h-4 w-4" />
                     Voir le rapport
                   </Button>
@@ -407,9 +326,9 @@ export default function ScanProgressPage() {
     )
   }
 
-  // Running/Pending state - use Supabase data directly, fallback to API status
-  const progress = scan.progress || (apiStatus?.progress || 0)
-  const currentPhase = scan.current_phase || apiStatus?.current_phase || "Analyse en cours..."
+  // Running / Pending state
+  const progress = scan.progress || 0
+  const currentPhase = scan.current_phase || "Analyse en cours..."
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-black to-slate-900 text-slate-100">
@@ -417,6 +336,14 @@ export default function ScanProgressPage() {
         <DashboardNav userEmail={userEmail} />
 
         <div className="max-w-3xl mx-auto mt-8">
+          {/* Reconnecting banner */}
+          {isReconnecting && (
+            <div className="flex items-center gap-2 text-sm text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded-lg px-4 py-2 mb-4">
+              <WifiOff className="h-4 w-4 shrink-0" />
+              Connexion au serveur perdue — tentative de reconnexion...
+            </div>
+          )}
+
           <Card className="bg-slate-900/50 border-slate-700/50 backdrop-blur-sm">
             <CardHeader>
               <CardTitle className="text-slate-100 flex items-center justify-between">
@@ -425,7 +352,14 @@ export default function ScanProgressPage() {
                   Scan en cours
                 </span>
                 <div className="flex items-center gap-2">
-                  {getStatusBadge()}
+                  {isReconnecting ? (
+                    <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/50">
+                      <Wifi className="h-3 w-3 mr-1" />
+                      Reconnexion...
+                    </Badge>
+                  ) : (
+                    getStatusBadge()
+                  )}
                   <Button
                     variant="ghost"
                     size="sm"
@@ -438,24 +372,19 @@ export default function ScanProgressPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* Header with domain and progress */}
               <div className="flex items-center justify-between">
-                <p className="text-lg text-slate-300">
-                  {extractDomain(scan.target_url)}
-                </p>
+                <p className="text-lg text-slate-300">{extractDomain(scan.target_url)}</p>
                 <div className="flex items-center gap-3">
                   <Loader2 className="h-5 w-5 text-cyan-500 animate-spin" />
                   <span className="text-cyan-400 font-medium">{progress}%</span>
                 </div>
               </div>
 
-              {/* Progress bar */}
               <div className="space-y-1">
                 <Progress value={progress} className="h-2" />
                 <p className="text-xs text-slate-500">{currentPhase}</p>
               </div>
 
-              {/* Terminal logs */}
               {showTerminal && (
                 <ScanTerminal
                   logs={logs}
@@ -464,14 +393,12 @@ export default function ScanProgressPage() {
                 />
               )}
 
-              {/* Fallback message if no logs */}
               {!showTerminal && (
                 <p className="text-sm text-slate-500 text-center py-4">
                   L'analyse peut prendre 2 à 5 minutes selon la complexité du site.
                 </p>
               )}
 
-              {/* Action buttons */}
               <div className="grid grid-cols-2 gap-3 pt-2">
                 <Button
                   onClick={handleBackToScan}
