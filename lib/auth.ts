@@ -28,9 +28,9 @@ export const authOptions: NextAuthOptions = {
         if (!credentials?.email || !credentials?.password) return null
 
         const rows = await sql`
-          SELECT id, email, password_hash, full_name, role
+          SELECT id, email, password_hash
           FROM users
-          WHERE email = ${credentials.email}
+          WHERE email = ${credentials.email.toLowerCase()}
           LIMIT 1
         `
         const user = rows[0]
@@ -42,8 +42,8 @@ export const authOptions: NextAuthOptions = {
         return {
           id: String(user.id),
           email: user.email as string,
-          name: (user.full_name as string) || "",
-          role: (user.role as string) || "user",
+          name: "",
+          role: "user",
         }
       },
     }),

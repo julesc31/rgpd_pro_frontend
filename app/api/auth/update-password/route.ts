@@ -21,7 +21,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Mot de passe actuel incorrect" }, { status: 400 })
     }
     const hash = await bcrypt.hash(newPassword, 12)
-    await sql`UPDATE users SET password_hash = ${hash}, updated_at = NOW() WHERE id = ${session.user.id}`
+    await sql`UPDATE users SET password_hash = ${hash} WHERE id = ${session.user.id}`
     return NextResponse.json({ ok: true })
   } catch (err) {
     console.error("[update-password]", err)

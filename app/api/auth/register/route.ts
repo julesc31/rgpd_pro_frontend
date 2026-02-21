@@ -14,9 +14,9 @@ export async function POST(req: Request) {
     }
     const password_hash = await bcrypt.hash(password, 12)
     const [user] = await sql`
-      INSERT INTO users (email, password_hash, full_name, role, created_at, updated_at)
-      VALUES (${email.toLowerCase()}, ${password_hash}, ${full_name || ""}, 'user', NOW(), NOW())
-      RETURNING id, email, full_name
+      INSERT INTO users (email, password_hash)
+      VALUES (${email.toLowerCase()}, ${password_hash})
+      RETURNING id, email
     `
     return NextResponse.json({ user }, { status: 201 })
   } catch (err) {
