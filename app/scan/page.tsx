@@ -172,6 +172,25 @@ type Scan = {
   scan_data?: { summary?: { total_violations?: number; risk_level?: string } }
 }
 
+// Normalise un objet brut de l'API en Scan typé
+// Le schéma DB a changé : url→target_url, scan_mode→scan_type selon les versions
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function normalizeScan(raw: any): Scan {
+  return {
+    id: raw.id ?? raw.scan_id,
+    target_url: raw.target_url || raw.url || "",
+    scan_type: raw.scan_type || raw.scan_mode || "quick",
+    status: raw.status || "pending",
+    progress: raw.progress ?? 0,
+    risk_level: raw.risk_level,
+    current_phase: raw.current_phase,
+    created_at: raw.created_at || new Date().toISOString(),
+    completed_at: raw.completed_at ?? null,
+    scan_logs: Array.isArray(raw.scan_logs) ? raw.scan_logs : [],
+    scan_data: raw.scan_data,
+  }
+}
+
 // ============================================================================
 // COMPONENT
 // ============================================================================
@@ -228,7 +247,8 @@ export default function ScanPage() {
         })
         if (res.ok) {
           const data = await res.json()
-          setScans(Array.isArray(data) ? data : (data.scans || []))
+          const raw = Array.isArray(data) ? data : (data.scans || [])
+          setScans(raw.map(normalizeScan))
         }
       } catch { /* ignore */ } finally {
         setScansLoading(false)
@@ -251,7 +271,7 @@ export default function ScanPage() {
         })
         if (!res.ok) return
         const raw = await res.json()
-        const scansData: Scan[] = Array.isArray(raw) ? raw : (raw.scans || [])
+        const scansData: Scan[] = (Array.isArray(raw) ? raw : (raw.scans || [])).map(normalizeScan)
         const newlyCompleted = scansData.some(newScan => {
           const oldScan = scans.find(s => s.id === newScan.id)
           return oldScan && oldScan.status !== "completed" && newScan.status === "completed"
@@ -319,19 +339,11 @@ export default function ScanPage() {
         throw new Error(errorData.detail || `Erreur création scan: ${response.status}`)
       }
       const raw = await response.json()
-      // Normalise les champs : /scan retourne `url` et `scan_mode`, le frontend attend `target_url` et `scan_type`
+      // Utilise normalizeScan + fallback sur les valeurs de la requête si champ absent
       const scan: Scan = {
-        id: raw.id || raw.scan_id,
+        ...normalizeScan(raw),
         target_url: raw.target_url || raw.url || urlToScan,
         scan_type: raw.scan_type || raw.scan_mode || scanMode,
-        status: raw.status || "pending",
-        progress: raw.progress ?? 0,
-        risk_level: raw.risk_level,
-        current_phase: raw.current_phase,
-        created_at: raw.created_at || new Date().toISOString(),
-        completed_at: raw.completed_at ?? null,
-        scan_logs: Array.isArray(raw.scan_logs) ? raw.scan_logs : [],
-        scan_data: raw.scan_data,
       }
 
       setScans(prev => [scan, ...prev])
