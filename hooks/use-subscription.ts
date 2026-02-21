@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
-import { apiGet } from '@/lib/api'
 
 export type SubscriptionPlan = 'free' | 'starter' | 'pro' | 'enterprise'
 
@@ -30,29 +29,10 @@ export function useSubscription(): SubscriptionInfo {
   const [isLoading, setIsLoading] = useState(true)
 
   const fetchSubscription = async () => {
-    if (!session?.backendToken) {
-      setIsLoading(false)
-      return
-    }
-    try {
-      const profile = await apiGet<{
-        subscription_plan?: string
-        scans_used?: number
-        scans_limit?: number
-      }>('/profiles/me', session.backendToken)
-
-      const currentPlan = (profile.subscription_plan || 'free') as SubscriptionPlan
-      setPlan(currentPlan)
-      setScansUsed(profile.scans_used ?? 0)
-      setScansLimit(profile.scans_limit ?? PLAN_LIMITS[currentPlan].scansLimit)
-    } catch {
-      // Mode dégradé : tout illimité
-      setPlan('free')
-      setScansUsed(0)
-      setScansLimit(999999)
-    } finally {
-      setIsLoading(false)
-    }
+    setPlan('free')
+    setScansUsed(0)
+    setScansLimit(999999)
+    setIsLoading(false)
   }
 
   useEffect(() => {

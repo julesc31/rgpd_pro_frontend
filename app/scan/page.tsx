@@ -298,30 +298,7 @@ export default function ScanPage() {
         Authorization: `Bearer ${session.backendToken}`,
       }
 
-      // Créer l'enregistrement scan via le backend
-      const scanRes = await fetch(`${apiUrl}/scans`, {
-        method: "POST",
-        headers: authHeaders,
-        body: JSON.stringify({
-          target_url: urlToScan,
-          scan_type: scanMode,
-          status: "pending",
-          progress: 0,
-          company_sector: sector || null,
-          company_revenue_bracket: revenueBracket || null,
-          company_employee_bracket: employeeBracket || null,
-        }),
-      })
-      if (!scanRes.ok) throw new Error(`Erreur création scan: ${scanRes.status}`)
-      const scan = await scanRes.json()
-
-      setScans(prev => [scan, ...prev])
-      setActiveScanId(scan.id)
-      setActiveScanLogs([])
-      setShowActiveScan(true)
-      setTargetUrl("https://")
-
-      // Lancer le scan réel
+      // Créer et lancer le scan
       const response = await fetch(`${apiUrl}/scan`, {
         method: "POST",
         headers: authHeaders,
@@ -334,14 +311,20 @@ export default function ScanPage() {
             sector,
           } : null,
           scan_mode: scanMode,
-          scan_id: scan.id,
           user_id: session.user.id,
         }),
       })
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.detail || `Erreur serveur: ${response.status}`)
+        throw new Error(errorData.detail || `Erreur création scan: ${response.status}`)
       }
+      const scan = await response.json()
+
+      setScans(prev => [scan, ...prev])
+      setActiveScanId(scan.id)
+      setActiveScanLogs([])
+      setShowActiveScan(true)
+      setTargetUrl("https://")
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "Une erreur est survenue")
     } finally {
