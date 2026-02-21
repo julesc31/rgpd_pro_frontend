@@ -283,7 +283,11 @@ export default function ScanPage() {
         })
         if (!res.ok) return
         const raw = await res.json()
-        const scansData: Scan[] = (Array.isArray(raw) ? raw : (raw.scans || [])).map(normalizeScan)
+        const scansData: Scan[] = (Array.isArray(raw) ? raw : (raw.scans || [])).map(s => {
+          const scan = normalizeScan(s)
+          const override = correctedScanTypes.current.get(scan.id)
+          return override ? { ...scan, scan_type: override } : scan
+        })
         const newlyCompleted = scansData.some(newScan => {
           const oldScan = scans.find(s => s.id === newScan.id)
           return oldScan && oldScan.status !== "completed" && newScan.status === "completed"
